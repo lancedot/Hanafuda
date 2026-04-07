@@ -1,0 +1,137 @@
+[
+  {
+    "id": "C-01",
+    "name": "朱红血墨",
+    "type": "增强 (Buff)",
+    "effectScript": "给 1 张妖怪牌永久增加 +30 Chips。",
+    "designIntent": "补齐皮牌基础分低的问题",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-02",
+    "name": "幽蓝灵息",
+    "type": "增强 (Buff)",
+    "effectScript": "给 1 张妖怪牌永久增加 +4 Mult。",
+    "designIntent": "稳定的基础倍率来源",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-03",
+    "name": "月明仪式",
+    "type": "氏族转换",
+    "effectScript": "将选中的 1 张妖怪牌的月份永久变为 8月(芒)。",
+    "designIntent": "强行凑“月见酒”或 8 月同族",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-04",
+    "name": "樱祭献祭",
+    "type": "氏族转换",
+    "effectScript": "将选中的 1 张妖怪牌的月份永久变为 3月(樱)。",
+    "designIntent": "强行凑“花见酒”或 3 月同族",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-05",
+    "name": "觉醒之印",
+    "type": "等阶提升",
+    "effectScript": "将 1 张“皮”级妖怪永久升级为“种”级（数值也随之提升）。",
+    "designIntent": "改变牌的本质属性",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-06",
+    "name": "镜花水月",
+    "type": "复制",
+    "effectScript": "选择 1 张妖怪牌，在牌组中生成一张它的完全克隆体。",
+    "designIntent": "复制高数值大妖",
+    "price": 4,
+    "permanence": "TEMPORARY"
+  },
+  {
+    "id": "C-07",
+    "name": "黄金束缚",
+    "type": "奖励词条",
+    "effectScript": "给 1 张牌贴上“黄金”词条：该牌被打出时获得 $3。",
+    "designIntent": "解决经济来源",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-08",
+    "name": "不动明王咒",
+    "type": "状态词条",
+    "effectScript": "给 1 张牌贴上“钢化”词条：该牌留在手牌不打出时，全局 Mult x1.5。",
+    "designIntent": "参考小丑牌的“钢牌”",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-09",
+    "name": "琉璃碎魂",
+    "type": "状态词条",
+    "effectScript": "给 1 张牌贴上“玻璃”词条：该牌打出时 x2.0 Mult，但有 1/4 概率破碎消失。",
+    "designIntent": "高风险高回报",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-10",
+    "name": "式神同调",
+    "type": "状态词条",
+    "effectScript": "给 1 张牌贴上“全息”词条：打出时提供 +10 Mult。",
+    "designIntent": "纯粹的倍率堆叠",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-11",
+    "name": "尸解大法",
+    "type": "摧毁",
+    "effectScript": "永久摧毁 牌组中选中的最多 2 张牌。",
+    "designIntent": "精简牌库，剔除废牌",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-12",
+    "name": "岁时乱序",
+    "type": "随机化",
+    "effectScript": "将手中 3 张牌的月份随机重置。",
+    "designIntent": "绝境下的赌一把",
+    "price": 4,
+    "permanence": "TEMPORARY"
+  },
+  {
+    "id": "C-13",
+    "name": "五行借法",
+    "type": "增强 (Buff)",
+    "effectScript": "选择一个月份，使该月份的所有妖怪本关 +50 Chips。",
+    "designIntent": "临时爆发",
+    "price": 4,
+    "permanence": "TEMPORARY"
+  },
+  {
+    "id": "C-14",
+    "name": "招财假面",
+    "type": "状态词条",
+    "effectScript": "给 1 张牌贴上“幸运”词条：打出时有概率获得 $20 或 +15 Mult。",
+    "designIntent": "赌狗快乐牌",
+    "price": 4,
+    "permanence": "PERMANENT"
+  },
+  {
+    "id": "C-15",
+    "name": "水墨晕染",
+    "type": "状态词条",
+    "effectScript": "给 1 张牌贴上“彩色”词条：打出时提供 x1.5 Mult。",
+    "designIntent": "顶级的倍率乘法器",
+    "price": 4,
+    "permanence": "PERMANENT"
+  }
+]

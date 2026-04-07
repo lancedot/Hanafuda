@@ -1,0 +1,65 @@
+[
+  {
+    "id": "combo-01",
+    "name": "乱舞 (散牌)",
+    "conditionText": "不满足以下任何条件",
+    "baseMultText": "x1",
+    "levelUpText": "+10 Chips / +1 Mult"
+  },
+  {
+    "id": "combo-02",
+    "name": "同族 (同月)",
+    "conditionText": "2张以上同月份牌",
+    "baseMultText": "x2 (每多一张 +2)",
+    "levelUpText": "+20 Chips / +2 Mult"
+  },
+  {
+    "id": "combo-03",
+    "name": "皮聚 (Kasu Pack)",
+    "conditionText": "5张全是皮级妖怪",
+    "baseMultText": "x4",
+    "levelUpText": "+40 Chips / +3 Mult"
+  },
+  {
+    "id": "combo-04",
+    "name": "花见/月见酒",
+    "conditionText": "3/8月光牌 + 9月酒盅",
+    "baseMultText": "x8",
+    "levelUpText": "+50 Chips / +5 Mult"
+  },
+  {
+    "id": "combo-05",
+    "name": "短册/荒魂流",
+    "conditionText": "3张以上短/种牌",
+    "baseMultText": "x10",
+    "levelUpText": "+60 Chips / +6 Mult"
+  },
+  {
+    "id": "combo-06",
+    "name": "青短/赤短",
+    "conditionText": "指定的3张短册",
+    "baseMultText": "x15",
+    "levelUpText": "+100 Chips / +10 Mult"
+  },
+  {
+    "id": "combo-07",
+    "name": "猪鹿蝶",
+    "conditionText": "6、7、10月指定种牌",
+    "baseMultText": "x20",
+    "levelUpText": "+150 Chips / +12 Mult"
+  },
+  {
+    "id": "combo-08",
+    "name": "三光/四光",
+    "conditionText": "3张或4张光牌",
+    "baseMultText": "x15 / x30",
+    "levelUpText": "+200 Chips / +20 Mult"
+  },
+  {
+    "id": "combo-09",
+    "name": "五光 (天灾)",
+    "conditionText": "5张全光牌",
+    "baseMultText": "x50",
+    "levelUpText": "+500 Chips / +50 Mult"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "maxHandSize": 8,
+  "maxPlayCards": 5,
+  "basePlays": 4,
+  "baseDiscards": 3,
+  "koiKoi": {
+    "onSuccess": {
+      "bonusType": "PERMANENT_GROWTH"
+    },
+    "onFail": {
+      "goldMultiplier": 0.5
+    }
+  },
+  "scoringFormula": "(sumCardChips + charmsChips + comboChips) * (comboMult + charmMult) * productMultipliers",
+  "interest": {
+    "step": 5,
+    "bonus": 1,
+    "cap": 20
+  }
+}

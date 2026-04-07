@@ -1,0 +1,162 @@
+[
+  {
+    "id": "B-01",
+    "name": "破旧的草鞋",
+    "rarity": "COMMON",
+    "price": 4,
+    "effectScript": "每次出牌，+20 Chips。",
+    "buildHint": "基础通用"
+  },
+  {
+    "id": "B-02",
+    "name": "朱红印泥",
+    "rarity": "COMMON",
+    "price": 4,
+    "effectScript": "每打出一张“短册（纸条）”级妖怪，+4 Mult。",
+    "buildHint": "短册流"
+  },
+  {
+    "id": "B-03",
+    "name": "河童的甲壳",
+    "rarity": "COMMON",
+    "price": 5,
+    "effectScript": "手牌中每有一张“皮（低阶）”级妖怪，+10 Chips。",
+    "buildHint": "囤积流/皮牌流"
+  },
+  {
+    "id": "B-04",
+    "name": "酒吞的葫芦",
+    "rarity": "UNCOMMON",
+    "price": 6,
+    "effectScript": "如果出牌包含“3月(樱)”或“9月(菊)”，该手牌最终 Mult x1.5。",
+    "buildHint": "花/月见酒流"
+  },
+  {
+    "id": "B-05",
+    "name": "入殓师的箱子",
+    "rarity": "UNCOMMON",
+    "price": 7,
+    "effectScript": "[成长型] 每打出 5 张“皮”级妖怪，永久 +1 Mult (本局持续)。",
+    "buildHint": "皮牌养成流"
+  },
+  {
+    "id": "B-06",
+    "name": "三目怪的义眼",
+    "rarity": "COMMON",
+    "price": 5,
+    "effectScript": "每次丢弃牌（Discard）后，下一次出牌 +30 Chips。",
+    "buildHint": "滤牌流"
+  },
+  {
+    "id": "B-07",
+    "name": "狐狸嫁女灯笼",
+    "rarity": "UNCOMMON",
+    "price": 7,
+    "effectScript": "如果打出的妖怪月份各不相同，最终 Mult x2.0。",
+    "buildHint": "杂牌/全家桶流"
+  },
+  {
+    "id": "B-08",
+    "name": "大天狗的羽扇",
+    "rarity": "RARE",
+    "price": 10,
+    "effectScript": "所有的“光（顶级）”级妖怪，基础 Mult 变为原来的 2 倍。",
+    "buildHint": "大妖流"
+  },
+  {
+    "id": "B-09",
+    "name": "空蝉之壳",
+    "rarity": "UNCOMMON",
+    "price": 6,
+    "effectScript": "如果只打出 1 张牌，该牌获得 +100 Chips。",
+    "buildHint": "单挑流 (高风险)"
+  },
+  {
+    "id": "B-10",
+    "name": "猪鹿蝶之约",
+    "rarity": "RARE",
+    "price": 9,
+    "effectScript": "只要打出包含“猪/鹿/蝶”其中之一，额外获得 x1.5 Mult。凑齐三张则 x5.0。",
+    "buildHint": "核心羁绊流"
+  },
+  {
+    "id": "B-11",
+    "name": "青坊主的念珠",
+    "rarity": "COMMON",
+    "price": 5,
+    "effectScript": "所有“青短（蓝纸）”妖怪基础 Chips +50。",
+    "buildHint": "青短专用"
+  },
+  {
+    "id": "B-12",
+    "name": "雨女的碎伞",
+    "rarity": "UNCOMMON",
+    "price": 8,
+    "effectScript": "将所有 11 月（柳）的妖怪视为“万能月份”去凑同族 Combo。",
+    "buildHint": "变幻流"
+  },
+  {
+    "id": "B-13",
+    "name": "杀生石碎片",
+    "rarity": "RARE",
+    "price": 11,
+    "effectScript": "[风险] 卖出此法宝时，将牌组中所有 1 月份的皮牌变为光牌。",
+    "buildHint": "转化/爆发流"
+  },
+  {
+    "id": "B-14",
+    "name": "付丧神之怒",
+    "rarity": "UNCOMMON",
+    "price": 7,
+    "effectScript": "牌组中每有一种被“增强”过的牌，+10 Mult。",
+    "buildHint": "增强流"
+  },
+  {
+    "id": "B-15",
+    "name": "猫又的尾巴",
+    "rarity": "UNCOMMON",
+    "price": 8,
+    "effectScript": "复制最左侧法宝的效果（不复制稀有法宝）。",
+    "buildHint": "战术位"
+  },
+  {
+    "id": "B-16",
+    "name": "百鬼夜行绘卷",
+    "rarity": "LEGENDARY",
+    "price": 20,
+    "effectScript": "每拥有一种“役（牌型）”，全局基础倍率额外 x1.1 (乘法叠加)。",
+    "buildHint": "收集控/全能"
+  },
+  {
+    "id": "B-17",
+    "name": "座敷童子的金币",
+    "rarity": "COMMON",
+    "price": 4,
+    "effectScript": "每次获胜后，根据剩余的出牌次数额外获得 $2。",
+    "buildHint": "经济流"
+  },
+  {
+    "id": "B-18",
+    "name": "凤凰的余烬",
+    "rarity": "LEGENDARY",
+    "price": 18,
+    "effectScript": "当分数未达标时，强制消耗此法宝并让该手牌分数 x10。",
+    "buildHint": "保命/翻盘"
+  },
+  {
+    "id": "B-19",
+    "name": "镜晶之影",
+    "rarity": "UNCOMMON",
+    "price": 7,
+    "effectScript": "允许你在出牌时多放 1 张牌（上限变为 6 张）。",
+    "buildHint": "强力辅助"
+  },
+  {
+    "id": "B-20",
+    "name": "枯萎的松枝",
+    "rarity": "COMMON",
+    "price": 3,
+    "effectScript": "1 月份所有妖怪基础 Mult +5。",
+    "buildHint": "开局过渡"
+  }
+]

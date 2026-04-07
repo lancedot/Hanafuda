@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vercel/
+.codex/
+output/
+coverage/
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db

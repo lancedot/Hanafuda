@@ -1,0 +1,128 @@
+[
+  {
+    "id": "stage-01",
+    "chapter": "第一章：新春之息",
+    "monthSet": "1月、2月",
+    "targetScoreText": "300 / 800",
+    "boss": "",
+    "bossRuleText": "",
+    "season": "SPRING",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-02",
+    "chapter": "【BOSS关】",
+    "monthSet": "3月 (樱)",
+    "targetScoreText": "2500",
+    "boss": "酒吞童子·醉樱",
+    "bossRuleText": "[宿醉]：打出的第一张牌不计分。",
+    "season": "SPRING",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-03",
+    "chapter": "第二章：仲夏之梦",
+    "monthSet": "4月、5月",
+    "targetScoreText": "5k / 12k",
+    "boss": "",
+    "bossRuleText": "",
+    "season": "SUMMER",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-04",
+    "chapter": "【BOSS关】",
+    "monthSet": "6月 (牡)",
+    "targetScoreText": "30000",
+    "boss": "玉藻前·幻蝶",
+    "bossRuleText": "[狐火]：所有“种”级妖怪基础筹码减半。",
+    "season": "SUMMER",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-05",
+    "chapter": "第三章：深秋之影",
+    "monthSet": "7月、8月",
+    "targetScoreText": "60k / 150k",
+    "boss": "",
+    "bossRuleText": "",
+    "season": "AUTUMN",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-06",
+    "chapter": "【BOSS关】",
+    "monthSet": "9月 (菊)",
+    "targetScoreText": "500000",
+    "boss": "土蜘蛛·荒盅",
+    "bossRuleText": "[乱序]：本场战斗无法触发“同族”Combo。",
+    "season": "AUTUMN",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-07",
+    "chapter": "第四章：寒冬之寂",
+    "monthSet": "10月、11月",
+    "targetScoreText": "1.2M / 4M",
+    "boss": "",
+    "bossRuleText": "",
+    "season": "WINTER",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-08",
+    "chapter": "【BOSS关】",
+    "monthSet": "12月 (桐)",
+    "targetScoreText": "15000000",
+    "boss": "两面宿儺·霜桐",
+    "bossRuleText": "[极寒]：每出一手牌，随机冻结一张手牌（无法打出）。",
+    "season": "WINTER",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  },
+  {
+    "id": "stage-09",
+    "chapter": "终章：永恒之蚀",
+    "monthSet": "第13月",
+    "targetScoreText": "1 亿+",
+    "boss": "辉夜姬·月之暗面",
+    "bossRuleText": "[无光]：所有“光”级妖怪失去等阶加成，降为“皮”。",
+    "season": "ECLIPSE",
+    "shopConfig": {
+      "cards": 3,
+      "relics": 2,
+      "charms": 2
+    }
+  }
+]

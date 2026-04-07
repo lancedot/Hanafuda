@@ -1,0 +1,552 @@
+[
+  {
+    "id": "46023",
+    "month": 1,
+    "rank": "HIKARI",
+    "name": "姑获鸟·松鹤",
+    "baseChips": 150,
+    "baseMult": 12,
+    "note": "核心大妖",
+    "lore": "怀抱婴儿的孤鹤，在松间寻找那些迷途的生灵。",
+    "tags": []
+  },
+  {
+    "id": "46024",
+    "month": 1,
+    "rank": "TAN",
+    "name": "鸣子小鬼 (赤短)",
+    "baseChips": 20,
+    "baseMult": 3,
+    "note": "带字红纸",
+    "lore": "系在红纸上的铃铛，每响一次都是新岁的回音。",
+    "tags": [
+      "RED_RIBBON"
+    ]
+  },
+  {
+    "id": "46025",
+    "month": 1,
+    "rank": "KASU",
+    "name": "松针精 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "基础小妖",
+    "lore": "岁寒不凋的碎叶，在冰雪中窃窃私语。",
+    "tags": []
+  },
+  {
+    "id": "46026",
+    "month": 1,
+    "rank": "KASU",
+    "name": "松针精 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "它是冬天的余孽，也是春天的先锋。",
+    "tags": []
+  },
+  {
+    "id": "46054",
+    "month": 2,
+    "rank": "TANE",
+    "name": "幻梦莺",
+    "baseChips": 50,
+    "baseMult": 6,
+    "note": "高阶妖怪",
+    "lore": "其声幽咽，能唤醒冻结在冰层下的陈年旧梦。",
+    "tags": []
+  },
+  {
+    "id": "46055",
+    "month": 2,
+    "rank": "TAN",
+    "name": "飞梅之灵 (赤短)",
+    "baseChips": 20,
+    "baseMult": 3,
+    "note": "带字红纸",
+    "lore": "那抹红，是写在冬末最决绝的告别。",
+    "tags": [
+      "RED_RIBBON"
+    ]
+  },
+  {
+    "id": "46056",
+    "month": 2,
+    "rank": "KASU",
+    "name": "寒梅妖 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "凌寒而立，它散发的幽香是有毒的引诱。",
+    "tags": []
+  },
+  {
+    "id": "46057",
+    "month": 2,
+    "rank": "KASU",
+    "name": "寒梅妖 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "碎雪中的一点红，比刀刃更冰冷。",
+    "tags": []
+  },
+  {
+    "id": "46082",
+    "month": 3,
+    "rank": "HIKARI",
+    "name": "酒吞童子·樱幕",
+    "baseChips": 150,
+    "baseMult": 12,
+    "note": "花见酒核心",
+    "lore": "幕布拉开，大江山之王的酒宴永不散场。",
+    "tags": [
+      "FLOWER_VIEWING_LIGHT"
+    ]
+  },
+  {
+    "id": "46083",
+    "month": 3,
+    "rank": "TAN",
+    "name": "樱狩鬼 (赤短)",
+    "baseChips": 20,
+    "baseMult": 3,
+    "note": "带字红纸",
+    "lore": "刀尖挑起樱花，是在祭奠，还是在掠夺？",
+    "tags": [
+      "RED_RIBBON"
+    ]
+  },
+  {
+    "id": "46084",
+    "month": 3,
+    "rank": "KASU",
+    "name": "樱瓣精 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "亿万片碎红中的一片，随风即逝的繁华。",
+    "tags": []
+  },
+  {
+    "id": "46085",
+    "month": 3,
+    "rank": "KASU",
+    "name": "樱瓣精 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "美到极致的代价，通常是彻底的崩解。",
+    "tags": []
+  },
+  {
+    "id": "46113",
+    "month": 4,
+    "rank": "TANE",
+    "name": "影中杜鹃",
+    "baseChips": 50,
+    "baseMult": 6,
+    "note": "",
+    "lore": "其鸣也哀，那是对不可挽回之事的最终哀悼。",
+    "tags": []
+  },
+  {
+    "id": "46114",
+    "month": 4,
+    "rank": "TAN",
+    "name": "藤蔓缠绕 (平短)",
+    "baseChips": 15,
+    "baseMult": 2,
+    "note": "无字红纸",
+    "lore": "紫色的绞索，温婉地束缚住一切过往。",
+    "tags": []
+  },
+  {
+    "id": "46115",
+    "month": 4,
+    "rank": "KASU",
+    "name": "藤花精 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "随风摇曳的紫色小妖，擅长编织虚假的幻象。",
+    "tags": []
+  },
+  {
+    "id": "46116",
+    "month": 4,
+    "rank": "KASU",
+    "name": "藤花精 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "如果你听见藤架下的笑声，千万不要回头。",
+    "tags": []
+  },
+  {
+    "id": "46143",
+    "month": 5,
+    "rank": "TANE",
+    "name": "八桥水妖",
+    "baseChips": 50,
+    "baseMult": 6,
+    "note": "",
+    "lore": "盘踞在木桥下的湿漉生灵，等待跨越界限的祭品。",
+    "tags": []
+  },
+  {
+    "id": "46144",
+    "month": 5,
+    "rank": "TAN",
+    "name": "菖蒲之魅 (平短)",
+    "baseChips": 15,
+    "baseMult": 2,
+    "note": "无字红纸",
+    "lore": "锐利如剑的叶片，切断一切不洁的关联。",
+    "tags": []
+  },
+  {
+    "id": "46145",
+    "month": 5,
+    "rank": "KASU",
+    "name": "幽兰精 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "藏在暗处的眼睛，窥视着这片沼泽的秘密。",
+    "tags": []
+  },
+  {
+    "id": "46146",
+    "month": 5,
+    "rank": "KASU",
+    "name": "幽兰精 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "清冷的芬芳，通常意味着你已深陷泥潭。",
+    "tags": []
+  },
+  {
+    "id": "46174",
+    "month": 6,
+    "rank": "TANE",
+    "name": "翡翠蝶",
+    "baseChips": 60,
+    "baseMult": 7,
+    "note": "猪鹿蝶核心",
+    "lore": "扇动翅膀，在腐烂的繁华中翩翩起舞。",
+    "tags": [
+      "BOAR"
+    ]
+  },
+  {
+    "id": "46175",
+    "month": 6,
+    "rank": "TAN",
+    "name": "墨牡丹 (青短)",
+    "baseChips": 25,
+    "baseMult": 4,
+    "note": "蓝纸",
+    "lore": "开在深夜的蓝调，是权贵们最隐秘的毒药。",
+    "tags": [
+      "BLUE_RIBBON"
+    ]
+  },
+  {
+    "id": "46176",
+    "month": 6,
+    "rank": "KASU",
+    "name": "牡丹精 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "臃肿而华丽，这仅仅是为了掩盖内心的虚无。",
+    "tags": []
+  },
+  {
+    "id": "46177",
+    "month": 6,
+    "rank": "KASU",
+    "name": "牡丹精 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "花瓣重重，每一层都藏着一个不可告人的噩梦。",
+    "tags": []
+  },
+  {
+    "id": "46204",
+    "month": 7,
+    "rank": "TANE",
+    "name": "裂地野猪",
+    "baseChips": 60,
+    "baseMult": 7,
+    "note": "猪鹿蝶核心",
+    "lore": "獠牙所过之处，平原上的秩序被彻底粉碎。",
+    "tags": [
+      "DEER"
+    ]
+  },
+  {
+    "id": "46205",
+    "month": 7,
+    "rank": "TAN",
+    "name": "萩丛狐 (平短)",
+    "baseChips": 15,
+    "baseMult": 2,
+    "note": "无字红纸",
+    "lore": "潜伏在草丛中的红尾，它的承诺比薄雾更轻。",
+    "tags": []
+  },
+  {
+    "id": "46206",
+    "month": 7,
+    "rank": "KASU",
+    "name": "萩叶怪 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "微不足道的叶片，汇聚成不可忽视的阻碍。",
+    "tags": []
+  },
+  {
+    "id": "46207",
+    "month": 7,
+    "rank": "KASU",
+    "name": "萩叶怪 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "秋风一吹，它们就成了无人问津的骸骨。",
+    "tags": []
+  },
+  {
+    "id": "46235",
+    "month": 8,
+    "rank": "HIKARI",
+    "name": "大天狗·芒月",
+    "baseChips": 180,
+    "baseMult": 15,
+    "note": "月见酒核心/最强单卡",
+    "lore": "高居明月之上，俯瞰众生的贪婪与毁灭。",
+    "tags": []
+  },
+  {
+    "id": "46236",
+    "month": 8,
+    "rank": "TANE",
+    "name": "雁阵魂",
+    "baseChips": 50,
+    "baseMult": 6,
+    "note": "无短册月份",
+    "lore": "划破月色的哀鸣，那是灵魂在排队进入虚无。",
+    "tags": []
+  },
+  {
+    "id": "46237",
+    "month": 8,
+    "rank": "KASU",
+    "name": "芒草鬼 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "随风倒伏的影子，没有立场，只有顺从。",
+    "tags": []
+  },
+  {
+    "id": "46238",
+    "month": 8,
+    "rank": "KASU",
+    "name": "芒草鬼 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "如果你在荒原迷路，芒草会指引你走向深渊。",
+    "tags": []
+  },
+  {
+    "id": "46266",
+    "month": 9,
+    "rank": "TANE",
+    "name": "荒魂酒盅",
+    "baseChips": 70,
+    "baseMult": 8,
+    "note": "全能卡/花月见核心",
+    "lore": "饮下此杯，你的灵魂将作为抵押物永久封印。",
+    "tags": [
+      "SAKE_CUP"
+    ]
+  },
+  {
+    "id": "46267",
+    "month": 9,
+    "rank": "TAN",
+    "name": "墨菊精 (青短)",
+    "baseChips": 25,
+    "baseMult": 4,
+    "note": "蓝纸",
+    "lore": "长寿的代价，是目睹身边所有的生灵老去。",
+    "tags": [
+      "BLUE_RIBBON"
+    ]
+  },
+  {
+    "id": "46268",
+    "month": 9,
+    "rank": "KASU",
+    "name": "雏菊妖 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "虽不显眼，却是整个荒原最冷酷的观察员。",
+    "tags": []
+  },
+  {
+    "id": "46269",
+    "month": 9,
+    "rank": "KASU",
+    "name": "雏菊妖 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "黄色的花蕊里，藏着计算命数的筹码。",
+    "tags": []
+  },
+  {
+    "id": "46296",
+    "month": 10,
+    "rank": "TANE",
+    "name": "红叶狩·鹿",
+    "baseChips": 60,
+    "baseMult": 7,
+    "note": "猪鹿蝶核心",
+    "lore": "鹿鸣哀婉，在如血的枫林中寻找失落的权杖。",
+    "tags": [
+      "BUTTERFLY"
+    ]
+  },
+  {
+    "id": "46297",
+    "month": 10,
+    "rank": "TAN",
+    "name": "霜枫鬼 (青短)",
+    "baseChips": 25,
+    "baseMult": 4,
+    "note": "蓝纸",
+    "lore": "每一片红叶，都是一张浸透血迹的契约。",
+    "tags": [
+      "BLUE_RIBBON"
+    ]
+  },
+  {
+    "id": "46298",
+    "month": 10,
+    "rank": "KASU",
+    "name": "红叶精 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "被霜打过的美丽，在触碰的瞬间就会碎裂。",
+    "tags": []
+  },
+  {
+    "id": "46299",
+    "month": 10,
+    "rank": "KASU",
+    "name": "红叶精 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "红叶如火，烧掉的是你的过去，还是未来？",
+    "tags": []
+  },
+  {
+    "id": "46327",
+    "month": 11,
+    "rank": "HIKARI",
+    "name": "雨女·柳间鬼",
+    "baseChips": 120,
+    "baseMult": 10,
+    "note": "特殊光牌",
+    "lore": "伞下的阴影里，所有的谎言都会随雨水显形。",
+    "tags": []
+  },
+  {
+    "id": "46328",
+    "month": 11,
+    "rank": "TANE",
+    "name": "雷燕",
+    "baseChips": 40,
+    "baseMult": 5,
+    "note": "",
+    "lore": "闪电后的归巢者，预示着风暴即将来临。",
+    "tags": []
+  },
+  {
+    "id": "46329",
+    "month": 11,
+    "rank": "TAN",
+    "name": "柳影魅 (平短)",
+    "baseChips": 15,
+    "baseMult": 2,
+    "note": "无字红纸",
+    "lore": "随风摆动的虚影，引诱你走向错误的路口。",
+    "tags": []
+  },
+  {
+    "id": "46330",
+    "month": 11,
+    "rank": "KASU",
+    "name": "鬼火闪电",
+    "baseChips": 10,
+    "baseMult": 2,
+    "note": "特种皮牌",
+    "lore": "瞬间的爆发，只为在黑暗中留下一道灼痕。",
+    "tags": []
+  },
+  {
+    "id": "46357",
+    "month": 12,
+    "rank": "HIKARI",
+    "name": "凤凰火·桐",
+    "baseChips": 150,
+    "baseMult": 12,
+    "note": "",
+    "lore": "涅槃的火焰，在余烬中重新定义毁灭的意义。",
+    "tags": []
+  },
+  {
+    "id": "46358",
+    "month": 12,
+    "rank": "KASU",
+    "name": "梧桐妖 A",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "寂静的旁观者，记录着这一年的终结。",
+    "tags": []
+  },
+  {
+    "id": "46359",
+    "month": 12,
+    "rank": "KASU",
+    "name": "梧桐妖 B",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "掉落的叶子，是给土地最后的祭礼。",
+    "tags": []
+  },
+  {
+    "id": "46360",
+    "month": 12,
+    "rank": "KASU",
+    "name": "梧桐妖 C",
+    "baseChips": 5,
+    "baseMult": 1,
+    "note": "",
+    "lore": "在最后一张纸页上，签下不可涂改的名字。",
+    "tags": []
+  }
+]

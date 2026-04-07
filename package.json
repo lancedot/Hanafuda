@@ -1,0 +1,24 @@
+{
+  "name": "hanafuda-roguelike",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "difficulty:eval": "vitest run tests/difficulty.eval.test.ts",
+    "export:content": "python scripts/export_content.py"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4",
+    "@types/node": "^22.18.6"
+  }
+}
