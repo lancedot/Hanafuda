@@ -40,6 +40,29 @@ describe("scoring", () => {
     expect(breakdown.finalScore).toBeGreaterThan(0);
   });
 
+  it("只取最高收益组合，不会把无关牌一起算分", () => {
+    const run = createRun(11);
+    const hikari = cards.find((c) => c.rank === "HIKARI" && c.month === 8);
+    const redRibbons = cards.filter((c) => c.tags.includes("RED_RIBBON")).slice(0, 3);
+    expect(hikari).toBeTruthy();
+    expect(redRibbons).toHaveLength(3);
+
+    const hand = forceHand(run, [hikari!.id, ...redRibbons.map((c) => c.id)]);
+    run.cardsByUid[hand[0]]!.bonusChips = 400;
+    run.cardsByUid[hand[0]]!.bonusMult = 20;
+
+    const breakdown = evaluatePlay({
+      run,
+      selectedUids: hand,
+      stageRuleCtx: stageRuleContext(stages[0]),
+      isFirstPlayInStage: true,
+    });
+
+    expect(breakdown.comboNames).toHaveLength(1);
+    expect(breakdown.usedCardUids.length).toBeLessThan(hand.length);
+    expect(breakdown.usedCardUids.every((uid) => hand.includes(uid))).toBe(true);
+  });
+
   it("disables same-month combo under disorder boss rule", () => {
     const run = createRun(2);
     run.stageIndex = 5;

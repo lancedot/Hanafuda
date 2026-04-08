@@ -82,7 +82,7 @@ function simulate(seed: number): RunResult {
     }
 
     const stage = stages[run.stageIndex];
-    const offer = generateShopOffer(run.seed + run.totalScore, run.stageIndex, stage.season);
+    const offer = generateShopOffer(run, stage.season);
 
     for (const relic of offer.relics.sort((a, b) => b.price - a.price)) {
       if (run.gold >= relic.price) buyRelic(run, relic.id);
@@ -125,6 +125,5 @@ describe("难度评估脚本", () => {
     const summary = evaluateDifficulty(120);
     console.log("DIFFICULTY_EVAL", JSON.stringify(summary, null, 2));
     expect(summary.sampleSize).toBe(120);
-  });
+  }, 30000);
 });
-

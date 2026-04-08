@@ -1,10 +1,4 @@
-import type { CardEval } from "../types/game";
-
-export interface ComboMatch {
-  name: string;
-  addMult: number;
-  addChips: number;
-}
+import type { CardEval, ComboMatch } from "../types/game";
 
 export interface ComboContext {
   disableSameMonthCombo: boolean;
@@ -19,75 +13,98 @@ export function evaluateCombos(
   const matches: ComboMatch[] = [];
   const monthCounts = new Map<number, number>();
   const rankCounts = { HIKARI: 0, TAN: 0, KASU: 0, TANE: 0 };
-  const tags = new Set<string>();
   for (const c of cards) {
     monthCounts.set(c.month, (monthCounts.get(c.month) ?? 0) + 1);
     rankCounts[c.rank] += 1;
-    for (const t of c.tags) tags.add(t);
   }
 
   const getLvBonus = (name: string, chipsPerLv: number, multPerLv: number) => {
     const lv = comboLevels[name] ?? 0;
     return { chips: lv * chipsPerLv, mult: lv * multPerLv };
   };
+  const byScoreDesc = (a: CardEval, b: CardEval) => b.chips + b.mult * 10 - (a.chips + a.mult * 10);
+  const pushMatch = (name: string, addMult: number, addChips: number, usedCards: CardEval[]) => {
+    matches.push({
+      name,
+      addMult,
+      addChips,
+      cardUids: usedCards.map((card) => card.uid),
+    });
+  };
 
   if (!ctx.disableSameMonthCombo) {
     const monthBest = Math.max(...Array.from(monthCounts.values()), 0);
     if (monthBest >= 2) {
+      const monthCards = Array.from(monthCounts.entries())
+        .filter(([, count]) => count === monthBest)
+        .map(([month]) => cards.filter((card) => card.month === month).sort(byScoreDesc))
+        .sort((left, right) => byScoreDesc(left[0]!, right[0]!));
+      const bestUsedCards = monthCards[0] ?? [];
       const bonus = getLvBonus("同族 (同月)", 20, 2);
-      matches.push({
-        name: "同族 (同月)",
-        addMult: 2 + Math.max(0, monthBest - 2) * 2 + bonus.mult,
-        addChips: bonus.chips,
-      });
+      pushMatch("同族 (同月)", 2 + Math.max(0, monthBest - 2) * 2 + bonus.mult, bonus.chips, bestUsedCards);
     } else if (ctx.wildcardMonth11) {
-      const has11 = cards.some((c) => c.month === 11);
-      if (has11) {
+      const month11Cards = cards.filter((c) => c.month === 11).sort(byScoreDesc);
+      if (month11Cards.length > 0) {
         const bonus = getLvBonus("同族 (同月)", 20, 2);
-        matches.push({ name: "同族 (同月)", addMult: 2 + bonus.mult, addChips: bonus.chips });
+        pushMatch("同族 (同月)", 2 + bonus.mult, bonus.chips, [month11Cards[0]!]);
       }
     }
   }
 
-  if (cards.length === 5 && rankCounts.KASU === 5) {
+  const kasuCards = cards.filter((c) => c.rank === "KASU").sort(byScoreDesc);
+  if (kasuCards.length >= 5) {
     const bonus = getLvBonus("皮聚 (Kasu Pack)", 40, 3);
-    matches.push({ name: "皮聚 (Kasu Pack)", addMult: 4 + bonus.mult, addChips: bonus.chips });
+    pushMatch("皮聚 (Kasu Pack)", 4 + bonus.mult, bonus.chips, kasuCards.slice(0, 5));
   }
-  const hasFlowerViewing = cards.some((c) => c.month === 3 && c.rank === "HIKARI");
-  const hasSakeCup = cards.some((c) => c.tags.includes("SAKE_CUP"));
-  if (hasFlowerViewing && hasSakeCup) {
+  const flowerViewingCards = cards.filter((c) => c.month === 3 && c.rank === "HIKARI").sort(byScoreDesc);
+  const sakeCupCards = cards.filter((c) => c.tags.includes("SAKE_CUP")).sort(byScoreDesc);
+  if (flowerViewingCards.length > 0 && sakeCupCards.length > 0) {
     const bonus = getLvBonus("花见/月见酒", 50, 5);
-    matches.push({ name: "花见/月见酒", addMult: 8 + bonus.mult, addChips: bonus.chips });
+    pushMatch("花见/月见酒", 8 + bonus.mult, bonus.chips, [flowerViewingCards[0]!, sakeCupCards[0]!]);
   }
-  if (rankCounts.TAN + rankCounts.TANE >= 3) {
+  const ribbonAndSeedCards = cards.filter((c) => c.rank === "TAN" || c.rank === "TANE").sort(byScoreDesc);
+  if (ribbonAndSeedCards.length >= 3) {
     const bonus = getLvBonus("短册/荒魂流", 60, 6);
-    matches.push({ name: "短册/荒魂流", addMult: 10 + bonus.mult, addChips: bonus.chips });
+    pushMatch("短册/荒魂流", 10 + bonus.mult, bonus.chips, ribbonAndSeedCards);
   }
-  const redCount = cards.filter((c) => c.tags.includes("RED_RIBBON")).length;
-  const blueCount = cards.filter((c) => c.tags.includes("BLUE_RIBBON")).length;
-  if (redCount >= 3 || blueCount >= 3) {
+  const redRibbonCards = cards.filter((c) => c.tags.includes("RED_RIBBON")).sort(byScoreDesc);
+  const blueRibbonCards = cards.filter((c) => c.tags.includes("BLUE_RIBBON")).sort(byScoreDesc);
+  if (redRibbonCards.length >= 3 || blueRibbonCards.length >= 3) {
+    const chosenRibbonCards =
+      redRibbonCards.length > blueRibbonCards.length
+        ? redRibbonCards
+        : blueRibbonCards.length > redRibbonCards.length
+          ? blueRibbonCards
+          : scoreCards(redRibbonCards) >= scoreCards(blueRibbonCards)
+            ? redRibbonCards
+            : blueRibbonCards;
     const bonus = getLvBonus("青短/赤短", 100, 10);
-    matches.push({ name: "青短/赤短", addMult: 15 + bonus.mult, addChips: bonus.chips });
+    pushMatch("青短/赤短", 15 + bonus.mult, bonus.chips, chosenRibbonCards);
   }
-  const hasBoar = tags.has("BOAR");
-  const hasDeer = tags.has("DEER");
-  const hasButterfly = tags.has("BUTTERFLY");
-  if (hasBoar && hasDeer && hasButterfly) {
+  const boar = cards.filter((c) => c.tags.includes("BOAR")).sort(byScoreDesc)[0];
+  const deer = cards.filter((c) => c.tags.includes("DEER")).sort(byScoreDesc)[0];
+  const butterfly = cards.filter((c) => c.tags.includes("BUTTERFLY")).sort(byScoreDesc)[0];
+  if (boar && deer && butterfly) {
     const bonus = getLvBonus("猪鹿蝶", 150, 12);
-    matches.push({ name: "猪鹿蝶", addMult: 20 + bonus.mult, addChips: bonus.chips });
+    pushMatch("猪鹿蝶", 20 + bonus.mult, bonus.chips, [boar, deer, butterfly]);
   }
-  if (rankCounts.HIKARI >= 3 && rankCounts.HIKARI <= 4) {
+  const hikariCards = cards.filter((c) => c.rank === "HIKARI").sort(byScoreDesc);
+  if (hikariCards.length >= 3 && hikariCards.length <= 4) {
     const bonus = getLvBonus("三光/四光", 200, 20);
-    const base = rankCounts.HIKARI === 4 ? 30 : 15;
-    matches.push({ name: "三光/四光", addMult: base + bonus.mult, addChips: bonus.chips });
+    const base = hikariCards.length === 4 ? 30 : 15;
+    pushMatch("三光/四光", base + bonus.mult, bonus.chips, hikariCards);
   }
-  if (rankCounts.HIKARI >= 5) {
+  if (hikariCards.length >= 5) {
     const bonus = getLvBonus("五光 (天灾)", 500, 50);
-    matches.push({ name: "五光 (天灾)", addMult: 50 + bonus.mult, addChips: bonus.chips });
+    pushMatch("五光 (天灾)", 50 + bonus.mult, bonus.chips, hikariCards.slice(0, 5));
   }
-  if (matches.length === 0) {
-    const bonus = getLvBonus("乱舞 (散牌)", 10, 1);
-    matches.push({ name: "乱舞 (散牌)", addMult: 1 + bonus.mult, addChips: bonus.chips });
+  const scatterBonus = getLvBonus("乱舞 (散牌)", 10, 1);
+  for (const card of cards) {
+    pushMatch("乱舞 (散牌)", 1 + scatterBonus.mult, scatterBonus.chips, [card]);
   }
   return matches;
+}
+
+function scoreCards(cards: CardEval[]): number {
+  return cards.reduce((sum, card) => sum + card.chips + card.mult * 10, 0);
 }

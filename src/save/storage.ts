@@ -24,6 +24,7 @@ export function loadRun(): RunState | null {
     const envelope = JSON.parse(raw) as Partial<SaveEnvelope>;
     if (envelope.version !== 1 || !envelope.payload) return null;
     const run = envelope.payload;
+    if (run.randomCounter === undefined) run.randomCounter = 0;
     if (!run.purchasedCharms) run.purchasedCharms = [];
     for (const card of Object.values(run.cardsByUid ?? {})) {
       if (!card.appliedCharmIds) card.appliedCharmIds = [];

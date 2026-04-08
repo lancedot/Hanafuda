@@ -23,7 +23,7 @@ export function resetSession(seed = Date.now()): void {
 export function ensureShopOffer(): ShopOffer {
   if (session.shopOffer) return session.shopOffer;
   const stage = stages[Math.min(session.run.stageIndex, stages.length - 1)];
-  session.shopOffer = generateShopOffer(session.run.seed, session.run.stageIndex, stage.season);
+  session.shopOffer = generateShopOffer(session.run, stage.season);
   return session.shopOffer;
 }
 

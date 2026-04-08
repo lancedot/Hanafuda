@@ -35,15 +35,15 @@ const STAGE_CLEAR_MULT: number[] = [
 ];
 
 const STAGE_CLEAR_BONUS_GOLD: number[] = [
-  2, // 1
-  3, // 2
-  4, // 3
-  5, // 4
-  6, // 5
-  8, // 6
-  10, // 7
-  12, // 8
-  15, // 9
+  1, // 1
+  1, // 2
+  2, // 3
+  2, // 4
+  3, // 5
+  4, // 6
+  5, // 7
+  6, // 8
+  8, // 9
 ];
 
 const STAGE_CLEAR_MULT_FACTOR: number[] = [

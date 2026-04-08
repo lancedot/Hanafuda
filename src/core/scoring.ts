@@ -13,7 +13,13 @@ export interface EvaluateParams {
 export function evaluatePlay(params: EvaluateParams): ScoreBreakdown {
   const { run, selectedUids, stageRuleCtx, isFirstPlayInStage } = params;
   const initial = selectedUids.map((uid) => evalCard(run.cardsByUid[uid]));
-  const cards = applyPreScoreRuleTweaks(initial, stageRuleCtx, isFirstPlayInStage);
+  const allCards = applyPreScoreRuleTweaks(initial, stageRuleCtx, isFirstPlayInStage);
+  const comboMatches = evaluateCombos(allCards, run.comboLevels, {
+    disableSameMonthCombo: stageRuleCtx.bossKey === "DISORDER",
+    wildcardMonth11: run.relics.includes("B-12"),
+  });
+  const best = pickBestCombo(run, allCards, comboMatches, stageRuleCtx);
+  const cards = best.cards;
 
   let chipsFromEffects = run.globalFlatChips + run.seasonChipBonus;
   let addMult = run.globalFlatMult;
@@ -32,22 +38,17 @@ export function evaluatePlay(params: EvaluateParams): ScoreBreakdown {
   });
 
   if (run.monthBuffTarget) {
-    for (const c of cards) {
-      if (c.month === run.monthBuffTarget) chipsFromEffects += 50;
+    for (const card of cards) {
+      if (card.month === run.monthBuffTarget) chipsFromEffects += 50;
     }
   }
   if (stageRuleCtx.season === "SUMMER" && run.discardsLeft < 3) {
     chipsFromEffects += 3 - run.discardsLeft;
   }
 
-  const comboMatches = evaluateCombos(cards, run.comboLevels, {
-    disableSameMonthCombo: stageRuleCtx.bossKey === "DISORDER",
-    wildcardMonth11: run.relics.includes("B-12"),
-  });
-
   const chipsFromCards = cards.reduce((sum, c) => sum + c.chips, 0);
-  const chipsFromCombos = comboMatches.reduce((sum, c) => sum + c.addChips, 0);
-  const comboMult = comboMatches.reduce((sum, c) => sum + c.addMult, 0);
+  const chipsFromCombos = best.combo.addChips;
+  const comboMult = best.combo.addMult;
   const base = chipsFromCards + chipsFromCombos + chipsFromEffects;
   const totalMult = Math.max(1, comboMult + addMult);
   let finalScore = Math.max(0, Math.floor(base * totalMult * multiplicative));
@@ -59,14 +60,115 @@ export function evaluatePlay(params: EvaluateParams): ScoreBreakdown {
   }
 
   return {
-    cardEvals: cards,
+    cardEvals: allCards,
     chipsFromCards,
     chipsFromCombos,
     chipsFromEffects,
     addedMult: comboMult + addMult,
     multiplicative,
-    comboNames: comboMatches.map((c) => c.name),
+    comboNames: [best.combo.name],
+    usedCardUids: best.combo.cardUids,
     finalScore,
+  };
+}
+
+function pickBestCombo(
+  run: RunState,
+  allCards: CardEval[],
+  comboMatches: ReturnType<typeof evaluateCombos>,
+  stageRuleCtx: StageRuleContext,
+): {
+  combo: ReturnType<typeof evaluateCombos>[number];
+  cards: CardEval[];
+  finalScore: number;
+} {
+  let best:
+    | {
+        combo: ReturnType<typeof evaluateCombos>[number];
+        cards: CardEval[];
+        finalScore: number;
+      }
+    | undefined;
+
+  for (const combo of comboMatches) {
+    const usedCardSet = new Set(combo.cardUids);
+    const usedCards = allCards.filter((card) => usedCardSet.has(card.uid));
+    const shadowRun = cloneRun(run);
+    let chipsFromEffects = shadowRun.globalFlatChips + shadowRun.seasonChipBonus;
+    let addMult = shadowRun.globalFlatMult;
+    let multiplicative = shadowRun.globalMultFactor;
+
+    applyCardTraitEffects(shadowRun, usedCards, (chips, mult, mul) => {
+      chipsFromEffects += chips;
+      addMult += mult;
+      multiplicative *= mul;
+    });
+
+    applyRelicEffects(shadowRun, usedCards, (chips, mult, mul) => {
+      chipsFromEffects += chips;
+      addMult += mult;
+      multiplicative *= mul;
+    });
+
+    if (shadowRun.monthBuffTarget) {
+      for (const card of usedCards) {
+        if (card.month === shadowRun.monthBuffTarget) chipsFromEffects += 50;
+      }
+    }
+    if (stageRuleCtx.season === "SUMMER" && shadowRun.discardsLeft < 3) {
+      chipsFromEffects += 3 - shadowRun.discardsLeft;
+    }
+
+    const chipsFromCards = usedCards.reduce((sum, card) => sum + card.chips, 0);
+    const base = chipsFromCards + combo.addChips + chipsFromEffects;
+    const totalMult = Math.max(1, combo.addMult + addMult);
+    const finalScore = Math.max(0, Math.floor(base * totalMult * multiplicative));
+
+    if (
+      !best ||
+      finalScore > best.finalScore ||
+      (finalScore === best.finalScore && usedCards.length < best.cards.length)
+    ) {
+      best = {
+        combo,
+        cards: usedCards,
+        finalScore,
+      };
+    }
+  }
+
+  return (
+    best ?? {
+      combo: { name: "乱舞 (散牌)", addMult: 1, addChips: 0, cardUids: [] },
+      cards: [],
+      finalScore: 0,
+    }
+  );
+}
+
+function cloneRun(run: RunState): RunState {
+  return {
+    ...run,
+    drawPile: [...run.drawPile],
+    hand: [...run.hand],
+    discardPile: [...run.discardPile],
+    removed: [...run.removed],
+    relics: [...run.relics],
+    charms: [...run.charms],
+    purchasedCharms: [...run.purchasedCharms],
+    comboLevels: { ...run.comboLevels },
+    unlockedComboNames: [...run.unlockedComboNames],
+    koiKoi: { ...run.koiKoi },
+    cardsByUid: Object.fromEntries(
+      Object.entries(run.cardsByUid).map(([uid, card]) => [
+        uid,
+        {
+          ...card,
+          traits: [...card.traits],
+          appliedCharmIds: [...card.appliedCharmIds],
+        },
+      ]),
+    ),
   };
 }
 

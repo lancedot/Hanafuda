@@ -91,6 +91,7 @@ export interface KoiKoiState {
 
 export interface RunState {
   seed: number;
+  randomCounter: number;
   stageIndex: number;
   gold: number;
   scoreThisStage: number;
@@ -132,6 +133,13 @@ export interface CardEval {
   traits: Trait[];
 }
 
+export interface ComboMatch {
+  name: string;
+  addMult: number;
+  addChips: number;
+  cardUids: string[];
+}
+
 export interface ScoreBreakdown {
   cardEvals: CardEval[];
   chipsFromCards: number;
@@ -140,6 +148,7 @@ export interface ScoreBreakdown {
   addedMult: number;
   multiplicative: number;
   comboNames: string[];
+  usedCardUids: string[];
   finalScore: number;
 }
 

@@ -5,6 +5,9 @@ import { evaluatePlay } from "./scoring";
 import { stageClearGrowth, targetMultiplierByStage } from "./balance";
 import type { CardDef, CardInstance, RunState, ScoreBreakdown } from "../types/game";
 
+export const MAX_RELIC_SLOTS = 4;
+export const MAX_CHARM_SLOTS = 4;
+
 function uid(prefix: string, seq: number): string {
   return `${prefix}-${seq.toString().padStart(5, "0")}`;
 }
@@ -12,10 +15,9 @@ function uid(prefix: string, seq: number): string {
 export function createRun(seed = Date.now()): RunState {
   const rng = new SeededRng(seed);
   const allDefs = rng.shuffle(cards);
-  const initialDefs = allDefs.slice(0, 12);
   const cardsByUid: Record<string, CardInstance> = {};
   let seq = 1;
-  for (const def of initialDefs) {
+  for (const def of allDefs) {
     const id = uid("card", seq++);
     cardsByUid[id] = {
       uid: id,
@@ -26,9 +28,10 @@ export function createRun(seed = Date.now()): RunState {
       appliedCharmIds: [],
     };
   }
-  const drawPile = rng.shuffle(Object.keys(cardsByUid));
+  const drawPile = Object.keys(cardsByUid);
   const run: RunState = {
     seed,
+    randomCounter: 0,
     stageIndex: 0,
     gold: 12,
     scoreThisStage: 0,
@@ -68,6 +71,11 @@ export function createRun(seed = Date.now()): RunState {
   return run;
 }
 
+function nextRandomSeed(run: RunState, salt = 0): number {
+  run.randomCounter += 1;
+  return (run.seed + run.randomCounter * 2654435761 + salt) >>> 0;
+}
+
 export function getCurrentStageTarget(run: RunState): number {
   const idx = Math.min(run.stageIndex, stages.length - 1);
   const raw = parseTargetScore(stages[idx].targetScoreText);
@@ -78,8 +86,16 @@ export function getMaxPlayCards(run: RunState): number {
   return run.relics.includes("B-19") ? 6 : rules.maxPlayCards;
 }
 
+export function getRelicSlots(run: RunState): Array<string | undefined> {
+  return Array.from({ length: MAX_RELIC_SLOTS }, (_, index) => run.relics[index]);
+}
+
+export function getCharmSlots(run: RunState): Array<string | undefined> {
+  return Array.from({ length: MAX_CHARM_SLOTS }, (_, index) => run.charms[index]);
+}
+
 export function drawToHand(run: RunState, targetSize: number): void {
-  const rng = new SeededRng(run.seed + run.stageIndex * 100 + run.hand.length + run.drawPile.length);
+  const rng = new SeededRng(nextRandomSeed(run, run.stageIndex * 1009 + run.discardPile.length * 31));
   while (run.hand.length < targetSize) {
     if (run.drawPile.length === 0) {
       if (run.discardPile.length === 0) break;
@@ -120,7 +136,7 @@ export function playCards(run: RunState, selectedUids: string[]): ScoreBreakdown
   applyPostPlayRelics(run, selectedUids);
 
   if (stage.bossRuleText.includes("冻结") && run.hand.length > 0) {
-    const rng = new SeededRng(run.seed + run.totalScore + run.hand.length);
+    const rng = new SeededRng(nextRandomSeed(run, run.totalScore + run.hand.length));
     run.frozenCardUid = run.hand[rng.int(0, run.hand.length - 1)];
   } else {
     run.frozenCardUid = undefined;
@@ -218,15 +234,15 @@ export function discardCards(run: RunState, selectedUids: string[]): void {
 export function settleStageAndPrepareShop(run: RunState): number {
   const target = getCurrentStageTarget(run);
   const ratio = Math.max(1, run.scoreThisStage / Math.max(1, target));
-  let reward = Math.floor(8 + ratio * 5);
+  let reward = Math.floor(5 + ratio * 3);
   reward += Math.floor(Math.min(run.gold, rules.interest.cap) / rules.interest.step) * rules.interest.bonus;
 
   if (run.koiKoi.continued && run.koiKoi.success) {
-    reward += Math.max(2, run.playsLeft);
+    reward += Math.max(1, Math.ceil(run.playsLeft / 2));
     run.globalFlatMult += Math.max(1, run.playsLeft);
   }
   if (run.koiKoi.continued && run.koiKoi.failed) reward = Math.floor(reward * rules.koiKoi.onFail.goldMultiplier);
-  if (run.relics.includes("B-17")) reward += run.playsLeft * 2;
+  if (run.relics.includes("B-17")) reward += run.playsLeft;
 
   const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
   const growth = stageClearGrowth(run.stageIndex, stage.chapter.includes("BOSS"));
@@ -235,6 +251,7 @@ export function settleStageAndPrepareShop(run: RunState): number {
   run.globalMultFactor *= growth.multFactor;
   reward += growth.bonusGold;
 
+  reward = Math.max(3, reward);
   run.gold += reward;
   run.stageRewardPending = reward;
   return reward;
@@ -288,20 +305,23 @@ export function addCardToDeck(run: RunState, cardDef: CardDef): void {
 export function buyRelic(run: RunState, relicId: string): boolean {
   const relic = relicById.get(relicId);
   if (!relic || run.gold < relic.price) return false;
-  if (!run.relics.includes(relicId)) run.relics.push(relicId);
+  if (run.relics.length >= MAX_RELIC_SLOTS) return false;
+  if (run.relics.includes(relicId)) return false;
+  run.relics.push(relicId);
   run.gold -= relic.price;
-  if (relicId === "B-15" && run.relics.length > 1) {
+  if (relicId === "B-15" && run.relics.length > 1 && run.relics.length < MAX_RELIC_SLOTS) {
     const copySource = run.relics[0];
     if (copySource !== "B-15") run.relics.push(copySource);
   }
   return true;
 }
 
-export function sellRelic(run: RunState, relicId: string): number {
+export function sellRelic(run: RunState, relicId: string, slotIndex?: number): number {
   const relic = relicById.get(relicId);
   if (!relic) return 0;
-  if (!run.relics.includes(relicId)) return 0;
-  run.relics = run.relics.filter((id) => id !== relicId);
+  const actualIndex = typeof slotIndex === "number" ? slotIndex : run.relics.indexOf(relicId);
+  if (actualIndex < 0 || run.relics[actualIndex] !== relicId) return 0;
+  run.relics.splice(actualIndex, 1);
   const value = Math.floor(relic.price * 0.5);
   run.gold += value;
   if (relicId === "B-13") {
@@ -323,6 +343,7 @@ export function buyCharm(run: RunState, charmId: string, price: number): boolean
   if (!run.purchasedCharms) run.purchasedCharms = [];
   if (run.purchasedCharms.includes(charmId)) return false;
   if (run.gold < price) return false;
+  if (run.charms.length >= MAX_CHARM_SLOTS) return false;
   run.gold -= price;
   run.charms.push(charmId);
   run.purchasedCharms.push(charmId);
@@ -400,7 +421,7 @@ export function applyCharm(
       return "已摧毁最多2张牌";
     }
     case "C-12": {
-      const rng = new SeededRng(run.seed + run.totalScore + run.hand.length);
+      const rng = new SeededRng(nextRandomSeed(run, run.totalScore + run.hand.length * 17));
       const targets = run.hand.slice(0, 3);
       for (const uidValue of targets) run.cardsByUid[uidValue].monthOverride = rng.int(1, 12);
       return "已重置3张手牌月份";
@@ -423,6 +444,12 @@ export function applyCharm(
     default:
       return "符咒未实现";
   }
+}
+
+export function removeCharmAt(run: RunState, slotIndex: number): string | undefined {
+  if (slotIndex < 0 || slotIndex >= run.charms.length) return undefined;
+  const [removedCharm] = run.charms.splice(slotIndex, 1);
+  return removedCharm;
 }
 
 function destroyCard(run: RunState, uidValue: string): void {
