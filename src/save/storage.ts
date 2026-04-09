@@ -25,17 +25,16 @@ export function loadRun(): RunState | null {
     if (envelope.version !== 1 || !envelope.payload) return null;
     const run = envelope.payload;
     if (run.randomCounter === undefined) run.randomCounter = 0;
-    if (!run.tableCards) run.tableCards = [];
+    if (!run.fieldCards) run.fieldCards = [];
     if (!run.purchasedCharms) run.purchasedCharms = [];
-    if (!run.koiKoi?.baselineCombos) {
+    if (!run.koiKoi || !run.koiKoi.baselineCombos) {
       run.koiKoi = {
-        offered: false,
-        continued: false,
         pendingChoice: false,
-        needExtraCombo: false,
+        continued: false,
         success: false,
         failed: false,
         baselineCombos: [],
+        triggerComboName: "",
       };
     }
     for (const card of Object.values(run.cardsByUid ?? {})) {
