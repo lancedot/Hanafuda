@@ -1,19 +1,20 @@
 import Phaser from "phaser";
-import { cardById, cardPriceByRank, charmById, combos, relicById, rules, stages } from "../../content/data";
+import { cardById, charmById, combos, relicById, rules, stages } from "../../content/data";
 import {
   MAX_CHARM_SLOTS,
+  MAX_RELIC_SLOTS,
   applyCharm,
-  discardCards,
   getCharmSlots,
   getCurrentStageTarget,
-  getMaxPlayCards,
   getRelicSlots,
   handleKoiKoiChoice,
-  playCards,
-  previewPlayScore,
+  playOneCard,
   removeCharmAt,
   settleStageAndPrepareShop,
+  sellRelic,
 } from "../../core/run";
+import { evaluatePlay } from "../../core/scoring";
+import { stageRuleContext } from "../../core/rules";
 import { pushLog, session } from "../session";
 import { clearRunSave, saveRun } from "../../save/storage";
 import {
@@ -27,26 +28,41 @@ import {
   等阶颜色,
   羁绊速查说明,
   花牌原名,
-  词条名,
+  formatTrait,
 } from "../uiText";
-import { 创建主题按钮, 墨金主题, 收束文本对象, 绘制场景底纹, 绘制描边面板, 限制多行 } from "../uiTheme";
+import {
+  创建悬浮提示,
+  创建主题按钮,
+  墨金主题,
+  收束文本对象,
+  清晰正文字体,
+  清晰标题字体,
+  绘制场景底纹,
+  绘制描边面板,
+  限制多行,
+} from "../uiTheme";
 
 type SidebarTab = "overview" | "combos" | "logs" | "detail";
 
 export class BattleScene extends Phaser.Scene {
-  private selected = new Set<string>();
-  private cardTexts: Phaser.GameObjects.Text[] = [];
+  private handCards: Phaser.GameObjects.Container[] = [];
+  private fieldCards: Phaser.GameObjects.Container[] = [];
+  private capturedCards: Phaser.GameObjects.Container[] = [];
   private focusedUid?: string;
   private selectedCharmIndex = 0;
   private armedCharmIndex?: number;
   private activeSidebarTab: SidebarTab = "overview";
   private tabButtons: Phaser.GameObjects.Text[] = [];
   private charmSlotButtons: Phaser.GameObjects.Text[] = [];
+  private tooltip?: ReturnType<typeof 创建悬浮提示>;
   private topText?: Phaser.GameObjects.Text;
+  private topRelicIcons: Array<Phaser.GameObjects.Image | Phaser.GameObjects.Text> = [];
   private infoText?: Phaser.GameObjects.Text;
+  private fieldLabel?: Phaser.GameObjects.Text;
+  private capturedLabel?: Phaser.GameObjects.Text;
+  private handLabel?: Phaser.GameObjects.Text;
   private sidebarTitleText?: Phaser.GameObjects.Text;
   private sidebarBodyText?: Phaser.GameObjects.Text;
-  private previewText?: Phaser.GameObjects.Text;
   private koiPanel?: Phaser.GameObjects.Container;
   private resultPanel?: Phaser.GameObjects.Container;
 
@@ -57,49 +73,63 @@ export class BattleScene extends Phaser.Scene {
   create(): void {
     const w = this.scale.width;
     const h = this.scale.height;
-    const rightPanelWidth = 620;
-    const rightPanelLeft = w - rightPanelWidth - 30;
+    const rightPanelWidth = 600;
+    const rightPanelLeft = w - rightPanelWidth - 24;
+    this.tooltip = 创建悬浮提示(this);
 
     绘制场景底纹(this, w, h);
-    绘制描边面板(this, 24, 18, rightPanelLeft - 34, h - 36, { fill: 0x18120f, alpha: 0.94, radius: 26 });
-    绘制描边面板(this, rightPanelLeft, 18, rightPanelWidth, h - 36, { fill: 0x15100d, alpha: 0.96, radius: 26 });
-    绘制描边面板(this, rightPanelLeft + 10, 112, rightPanelWidth - 20, h - 174, { fill: 0x1b1511, alpha: 0.92, radius: 18 });
+    // Left play area
+    绘制描边面板(this, 16, 14, rightPanelLeft - 26, h - 28, { fill: 0x18120f, alpha: 0.94, radius: 22 });
+    // Right sidebar
+    绘制描边面板(this, rightPanelLeft, 14, rightPanelWidth, h - 28, { fill: 0x15100d, alpha: 0.96, radius: 22 });
+    绘制描边面板(this, rightPanelLeft + 8, 138, rightPanelWidth - 16, h - 196, { fill: 0x1b1511, alpha: 0.92, radius: 16 });
 
-    this.topText = this.add.text(40, 18, "", {
+    this.topText = this.add.text(32, 14, "", {
       color: 墨金主题.文本主,
-      fontFamily: "Noto Serif SC, Microsoft YaHei",
-      fontSize: "20px",
+      fontFamily: 清晰标题字体,
+      fontSize: "16px",
+      lineSpacing: 4,
     });
-    this.infoText = this.add.text(40, 690, "", {
-      color: 墨金主题.文本主,
-      fontFamily: "Noto Serif SC, Microsoft YaHei",
-      fontSize: "15px",
-      wordWrap: { width: 860 },
-    });
-    this.sidebarTitleText = this.add.text(rightPanelLeft + 24, 178, "", {
+
+    // Zone labels
+    this.fieldLabel = this.add.text(32, 110, "场·公开牌（待配对）", {
       color: 墨金主题.金亮,
-      fontFamily: "Noto Serif SC, Microsoft YaHei",
-      fontSize: "24px",
-    });
-    this.sidebarBodyText = this.add.text(rightPanelLeft + 24, 222, "", {
-      color: 墨金主题.文本主,
-      fontFamily: "Microsoft YaHei",
+      fontFamily: 清晰标题字体,
       fontSize: "14px",
-      lineSpacing: 5,
-      wordWrap: { width: rightPanelWidth - 48 },
     });
-    this.previewText = this.add.text(40, 620, "", {
-      color: "#f3e7cf",
-      fontFamily: "Microsoft YaHei",
+    this.capturedLabel = this.add.text(32, 420, "捕获·收获区（成役牌库）", {
+      color: "#9dcf88",
+      fontFamily: 清晰标题字体,
       fontSize: "14px",
-      lineSpacing: 3,
-      wordWrap: { width: 860 },
+    });
+    this.handLabel = this.add.text(32, 695, "手牌·点击直接配对", {
+      color: 墨金主题.文本次,
+      fontFamily: 清晰标题字体,
+      fontSize: "14px",
     });
 
-    this.addActionButton("出牌", rightPanelLeft + 20, 20, "red", () => this.onPlay());
-    this.addActionButton("弃牌", rightPanelLeft + 114, 20, "brown", () => this.onDiscard());
-    this.addActionButton("施放符咒", rightPanelLeft + 208, 20, "purple", () => this.onCastCharm());
-    this.addActionButton("立即存档", rightPanelLeft + 338, 20, "green", () => {
+    this.infoText = this.add.text(32, 885, "", {
+      color: 墨金主题.文本主,
+      fontFamily: 清晰正文字体,
+      fontSize: "14px",
+      lineSpacing: 4,
+      wordWrap: { width: rightPanelLeft - 50 },
+    });
+
+    this.sidebarTitleText = this.add.text(rightPanelLeft + 20, 196, "", {
+      color: 墨金主题.金亮,
+      fontFamily: 清晰标题字体,
+      fontSize: "22px",
+    });
+    this.sidebarBodyText = this.add.text(rightPanelLeft + 20, 242, "", {
+      color: 墨金主题.文本主,
+      fontFamily: 清晰正文字体,
+      fontSize: "14px",
+      lineSpacing: 6,
+      wordWrap: { width: rightPanelWidth - 40 },
+    });
+
+    this.addActionButton("立即存档", rightPanelLeft + 20, 20, "green", () => {
       saveRun(session.run);
       pushLog("已写入本地存档");
       this.refresh();
@@ -108,20 +138,14 @@ export class BattleScene extends Phaser.Scene {
     this.refresh();
   }
 
-  private addActionButton(
-    label: string,
-    x: number,
-    y: number,
-    variant: "brown" | "red" | "green" | "purple",
-    onClick: () => void,
-  ): void {
+  private addActionButton(label: string, x: number, y: number, variant: "brown" | "red" | "green" | "purple", onClick: () => void): void {
     创建主题按钮(this, x, y, label, onClick, variant);
   }
 
   private buildSidebarTabs(): void {
     for (const button of this.tabButtons) button.destroy();
     this.tabButtons = [];
-    const rightPanelLeft = this.scale.width - 620 - 30;
+    const rightPanelLeft = this.scale.width - 600 - 24;
     const tabs: Array<{ key: SidebarTab; label: string }> = [
       { key: "overview", label: "总览" },
       { key: "combos", label: "羁绊" },
@@ -132,18 +156,15 @@ export class BattleScene extends Phaser.Scene {
       const active = this.activeSidebarTab === tab.key;
       const button = 创建主题按钮(
         this,
-        rightPanelLeft + 22 + index * 92,
-        130,
+        rightPanelLeft + 20 + index * 88,
+        108,
         tab.label,
         () => {
           this.activeSidebarTab = tab.key;
           this.refresh();
         },
         active ? "red" : "brown",
-      ).setStyle({
-        fontSize: "14px",
-        padding: { left: 14, right: 14, top: 7, bottom: 7 },
-      });
+      ).setStyle({ fontSize: "14px", padding: { left: 14, right: 14, top: 6, bottom: 6 } });
       this.tabButtons.push(button);
     });
   }
@@ -151,16 +172,16 @@ export class BattleScene extends Phaser.Scene {
   private buildCharmSlots(): void {
     for (const button of this.charmSlotButtons) button.destroy();
     this.charmSlotButtons = [];
-    const rightPanelLeft = this.scale.width - 620 - 30;
+    const rightPanelLeft = this.scale.width - 600 - 24;
     const slots = getCharmSlots(session.run);
     slots.forEach((charmId, index) => {
       const charm = charmId ? charmById.get(charmId) : undefined;
       const armed = this.armedCharmIndex === index;
       const button = 创建主题按钮(
         this,
-        rightPanelLeft + 22 + (index % 2) * 286,
-        76 + Math.floor(index / 2) * 34,
-        charm ? `${armed ? "▶" : ""}符咒槽${index + 1}:${charm.name}` : `符咒槽${index + 1}: 空`,
+        rightPanelLeft + 20 + index * 70,
+        66,
+        charm ? `咒${index + 1}` : "空",
         () => {
           if (!charmId) return;
           if (this.armedCharmIndex === index) {
@@ -178,78 +199,15 @@ export class BattleScene extends Phaser.Scene {
           this.refresh();
         },
         charmId ? (armed ? "purple" : "brown") : "green",
-      ).setStyle({
-        fontSize: "13px",
-        padding: { left: 10, right: 10, top: 7, bottom: 7 },
-      });
+      ).setStyle({ fontSize: "14px", padding: { left: 10, right: 10, top: 8, bottom: 8 } });
+      this.tooltip?.attach(
+        button,
+        charmId
+          ? [`符咒槽${index + 1}`, charm?.name ?? charmId, charm?.effectScript ?? "", armed ? "当前待施放" : "点击后再选目标"]
+          : [`符咒槽${index + 1}`, "空槽"],
+      );
       this.charmSlotButtons.push(button);
     });
-  }
-
-  private onPlay(): void {
-    if (session.run.koiKoi.pendingChoice || this.resultPanel) return;
-    if (session.run.frozenCardUid && this.selected.has(session.run.frozenCardUid)) {
-      pushLog("冻结牌无法被选中打出");
-      this.refresh();
-      return;
-    }
-    const chosen = Array.from(this.selected);
-    if (chosen.length === 0 || chosen.length > getMaxPlayCards(session.run)) {
-      pushLog(`请选择 1~${getMaxPlayCards(session.run)} 张牌`);
-      this.refresh();
-      return;
-    }
-    const score = playCards(session.run, chosen);
-    this.selected.clear();
-    pushLog(`出牌得分 ${score.finalScore}，触发：${score.comboNames.join("、")}`);
-
-    if (session.run.runLost) {
-      clearRunSave();
-      this.showTerminalPanel("败北", `第${session.run.stageIndex + 1}关挑战失败，本局结束。`);
-      return;
-    }
-
-    if (session.run.stageCleared) {
-      const reward = settleStageAndPrepareShop(session.run);
-      pushLog(`关卡结算 +${reward} 金币`);
-      saveRun(session.run);
-      if (session.run.stageIndex >= stages.length - 1) {
-        clearRunSave();
-        this.showTerminalPanel("通关", `你已经通过终章，总金币结算 +${reward}。`);
-        return;
-      }
-      this.showResultPanel(score.finalScore, reward);
-      return;
-    }
-    this.refresh();
-  }
-
-  private onDiscard(): void {
-    if (this.resultPanel) return;
-    const chosen = Array.from(this.selected);
-    if (chosen.length === 0 || chosen.length > 5) {
-      pushLog("弃牌需选择 1~5 张");
-      this.refresh();
-      return;
-    }
-    discardCards(session.run, chosen);
-    this.selected.clear();
-    pushLog(`弃置 ${chosen.length} 张牌`);
-    this.refresh();
-  }
-
-  private onCastCharm(): void {
-    if (this.resultPanel) return;
-    if (session.run.charms.length === 0) {
-      pushLog("当前没有符咒");
-      this.refresh();
-      return;
-    }
-    const slotIndex =
-      typeof this.armedCharmIndex === "number"
-        ? this.armedCharmIndex
-        : Phaser.Math.Clamp(this.selectedCharmIndex, 0, Math.max(0, session.run.charms.length - 1));
-    this.castCharmAt(slotIndex, this.focusedUid ?? (this.selected.values().next().value as string | undefined));
   }
 
   private refresh(): void {
@@ -257,207 +215,345 @@ export class BattleScene extends Phaser.Scene {
     if (session.run.charms.length === 0) {
       this.selectedCharmIndex = 0;
       this.armedCharmIndex = undefined;
-    } else {
-      this.selectedCharmIndex = Phaser.Math.Clamp(this.selectedCharmIndex, 0, session.run.charms.length - 1);
-      if (typeof this.armedCharmIndex === "number" && this.armedCharmIndex >= session.run.charms.length) {
-        this.armedCharmIndex = undefined;
-      }
     }
     this.buildSidebarTabs();
     this.buildCharmSlots();
     this.renderTop();
-    this.renderCards();
+    this.renderTopRelics();
+    this.renderFieldCards();
+    this.renderCapturedCards();
+    this.renderHandCards();
     this.renderInfo();
     this.renderSidebar();
-    this.renderPreview();
     this.renderKoiKoi();
   }
 
   private renderTop(): void {
     const stage = stages[Math.min(session.run.stageIndex, stages.length - 1)];
+    const koiMul = session.run.koiKoiMultiplier > 1 ? `  【KoiKoi×${session.run.koiKoiMultiplier}】` : "";
     this.topText?.setText(
       限制多行(
         [
-          `关卡 ${session.run.stageIndex + 1}/${stages.length} ${stage.chapter} ${stage.monthSet}`,
-          `目标:${getCurrentStageTarget(session.run)}  当前:${session.run.scoreThisStage}  总分:${session.run.totalScore}`,
-          `金币:${session.run.gold}  出牌:${session.run.playsLeft}  弃牌:${session.run.discardsLeft}  手牌:${session.run.hand.length}/${rules.maxHandSize}`,
-          `牌库总数:${this.activeDeckCount()}  抽牌堆:${session.run.drawPile.length}  弃牌堆:${session.run.discardPile.length}${session.run.drawPile.length === 0 && session.run.discardPile.length > 0 ? "（下一抽会洗牌）" : ""}`,
+          `关卡 ${session.run.stageIndex + 1}/${stages.length}  ${stage.chapter}  ${stage.monthSet}${koiMul}`,
+          `目标:${getCurrentStageTarget(session.run)}  金币:${session.run.gold}  剩余出牌:${session.run.playsLeft}/${8}  弃牌:[暂无用处]`,
+          `牌库:${this.activeDeckCount()}  抽牌堆:${session.run.drawPile.length}  场上:${session.run.fieldCards.length}  已捕获:${session.run.capturedCards.length}`,
+          stage.boss ? `Boss【${stage.boss}】${stage.bossRuleText}` : `关卡干扰：${stage.bossRuleText || "无"}`,
         ].join("\n"),
         4,
-        48,
+        60,
       ),
     );
-    this.topText?.setFixedSize(900, 90);
   }
 
-  private renderCards(): void {
-    for (const text of this.cardTexts) text.destroy();
-    this.cardTexts = [];
-    const max = getMaxPlayCards(session.run);
+  private renderTopRelics(): void {
+    for (const r of this.topRelicIcons) r.destroy();
+    this.topRelicIcons = [];
+    const rightPanelLeft = this.scale.width - 600 - 24;
+    const startX = rightPanelLeft - 220; // Float right side of the top bar
+    const slots = getRelicSlots(session.run);
+    
+    // Label
+    const lbl = this.add.text(startX - 90, 20, "已装备法宝：", { color: 墨金主题.文本淡, fontSize: "12px", fontFamily: 清晰正文字体 });
+    this.topRelicIcons.push(lbl);
+
+    slots.forEach((relicId, index) => {
+      const relic = relicId ? relicById.get(relicId) : undefined;
+      const x = startX + index * 42;
+      const bg = this.add.image(x, 30, "button_bg").setDisplaySize(38, 38).setInteractive({ useHandCursor: relicId !== undefined });
+      const text = this.add.text(x, 30, relicId ? ` ${index + 1}` : "空", { fontSize: "14px", fontFamily: 清晰正文字体 }).setOrigin(0.5);
+      
+      this.tooltip?.attach(bg, relic ? [relic.name, relic.effectScript] : ["空法宝槽位"]);
+      if (relicId) {
+        bg.on("pointerup", () => {
+          sellRelic(session.run, relicId, index);
+          pushLog(`战斗中快速出售了法宝 ${relic?.name ?? relicId}`);
+          this.refresh();
+        });
+      }
+      this.topRelicIcons.push(bg, text);
+    });
+  }
+
+  private createCardContainer(x: number, y: number, uid: string | undefined, def: any, inst: any, interactable: boolean = false): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y);
+    const month = inst?.monthOverride ?? def?.month ?? 1;
+    const rank = inst?.rankOverride ?? def?.rank ?? "KASU";
+    
+    // Render the new card_front image background
+    const bg = this.add.image(0, 0, "card_front").setDisplaySize(90, 135).setOrigin(0);
+    // Tint it based on rank
+    const colorStr = 等阶底色(rank);
+    let tintColor = 0xffffff;
+    if (colorStr.startsWith('#')) tintColor = parseInt(colorStr.replace('#', '0x'));
+    bg.setTint(tintColor);
+
+    const txtColor = colorStr === "#3f201d" || colorStr === "#3f251c" ? 墨金主题.金亮 : 等阶颜色(rank);
+    let textContent = def ? `【${month}月】\n${def.name}` : `Boss\n夺走`;
+    
+    const textBg = this.add.rectangle(45, 20, 90, 40, 0x000000, 0.7);
+    const text = this.add.text(45, 20, textContent, {
+      color: txtColor,
+      fontFamily: 清晰正文字体,
+      fontSize: "13px",
+      align: "center",
+      lineSpacing: 2
+    }).setOrigin(0.5);
+
+    container.add([bg, textBg, text]);
+
+    if (inst && inst.traits.length > 0) {
+      const traitText = `[${inst.traits.map((t: any) => formatTrait(t)).join(",")}]`;
+      const tb = this.add.rectangle(45, 120, 90, 20, 0x000000, 0.6);
+      const tt = this.add.text(45, 120, traitText, { color: "#eebb77", fontSize: "11px", fontFamily: 清晰正文字体 }).setOrigin(0.5);
+      container.add([tb, tt]);
+    }
+
+    if (interactable) {
+      container.setSize(90, 135);
+      const hitArea = new Phaser.Geom.Rectangle(45, 67.5, 90, 135);
+      container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+    }
+
+    return container;
+  }
+
+  private renderFieldCards(): void {
+    for (const t of this.fieldCards) t.destroy();
+    this.fieldCards = [];
+    session.run.fieldCards.forEach((uid, i) => {
+      const card = session.run.cardsByUid[uid];
+      const def = card ? cardById.get(card.cardId) : undefined;
+      const col = i % 8;
+      const row = Math.floor(i / 8);
+      const c = this.createCardContainer(64 + col * 100, 142 + row * 145, uid, def, card, false);
+      this.fieldCards.push(c);
+    });
+
+    if (session.run.bossCollected.length > 0) {
+      const msg = `⚠️ Boss 夺走了 ${session.run.bossCollected.length} 张牌`;
+      const text = this.add.text(32, 142 + 2 * 145, msg, { color: "#e07070", fontFamily: 清晰标题字体, fontSize: "14px" });
+      const c = this.add.container(0, 0, [text]);
+      this.fieldCards.push(c);
+    }
+  }
+
+  private updateCapturedLabel(simulatedUids?: string[]): void {
+    if (!this.capturedLabel) return;
+    const stage = stages[Math.min(session.run.stageIndex, stages.length - 1)];
+    const score = evaluatePlay({
+      run: session.run,
+      selectedUids: simulatedUids ?? session.run.capturedCards,
+      stageRuleCtx: stageRuleContext(stage),
+    });
+    const currentCombosStr = score.comboNames.filter(n => n !== "乱舞 (散牌)").join("、");
+
+    if (simulatedUids) {
+      const oldScore = session.run.scoreThisStage || 0;
+      const diff = score.finalScore - oldScore;
+      const comboStr = currentCombosStr.length > 0 ? `（预计役：${currentCombosStr}）` : "";
+      const diffStr = diff > 0 ? ` [预测: +${diff}文]` : " [预测未得分]";
+      this.capturedLabel.setText(`★战利品区${comboStr}${diffStr}`);
+      if (diff > 0) this.capturedLabel.setColor("#eebb77");
+    } else {
+      const capturedTitle = currentCombosStr.length > 0
+         ? `★战利品区（已构筑：${currentCombosStr}）`
+         : "捕获·收获区（成役牌库）";
+      this.capturedLabel.setText(capturedTitle);
+      this.capturedLabel.setColor(currentCombosStr.length > 0 ? "#eeb255" : "#9dcf88");
+    }
+  }
+
+  private renderCapturedCards(): void {
+    for (const t of this.capturedCards) t.destroy();
+    this.capturedCards = [];
+
+    this.updateCapturedLabel();
+
+    session.run.capturedCards.forEach((uid, i) => {
+      const card = session.run.cardsByUid[uid];
+      const def = card ? cardById.get(card.cardId) : undefined;
+      const col = i % 14;
+      const row = Math.floor(i / 14);
+      const c = this.createCardContainer(64 + col * 55, 460 + row * 38, uid, def, card, false);
+      c.setScale(0.65);
+      c.setDepth(i);
+      const checkBg = this.add.rectangle(75, 15, 18, 18, 0x1a3020).setOrigin(0.5);
+      const checkMark = this.add.text(75, 15, "✓", { color: "#95df88", fontSize: "12px" }).setOrigin(0.5);
+      c.add([checkBg, checkMark]);
+      this.capturedCards.push(c);
+    });
+  }
+
+  private renderHandCards(): void {
+    for (const t of this.handCards) t.destroy();
+    this.handCards = [];
     const frozen = session.run.frozenCardUid;
+
     session.run.hand.forEach((uid, i) => {
       const card = session.run.cardsByUid[uid];
-      const def = cardById.get(card.cardId);
-      if (!def) return;
-      const month = card.monthOverride ?? def.month;
-      const rank = card.rankOverride ?? def.rank;
-      const text = this.add
-        .text(40 + (i % 2) * 430, 140 + Math.floor(i / 2) * 108, "", {
-          color: 等阶颜色(rank),
-          backgroundColor: 等阶底色(rank),
-          fontFamily: "Microsoft YaHei",
-          fontSize: "13px",
-          padding: { left: 8, right: 8, top: 8, bottom: 8 },
-          wordWrap: { width: 408 },
-        })
-        .setInteractive({ useHandCursor: true });
-      const selected = this.selected.has(uid);
-      const blocked = uid === frozen;
-      text.setText(
-        限制多行(
-          [
-            `${selected ? "▶" : " "}【${花牌原名(def)}】${blocked ? "【冻结】" : ""}`,
-            `妖怪：${def.name}`,
-            `月份：${月份名[month]}  等阶：${等阶名(rank)}  价格：${cardPriceByRank(rank)}金币`,
-            `词条：${card.traits.map((t) => 词条名(t)).join("、") || "无"}`,
-          ].join("\n"),
-          4,
-        ),
-      );
-      text.setFixedSize(408, 88);
-      text.setStyle({ backgroundColor: selected ? "#8d6534" : blocked ? "#34495d" : 等阶底色(rank) });
-      text.on("pointerup", () => {
-        this.focusedUid = uid;
-        if (typeof this.armedCharmIndex === "number") {
-          this.castCharmAt(this.armedCharmIndex, uid);
-          return;
-        }
-        this.activeSidebarTab = "detail";
-        if (blocked) {
-          pushLog("该牌被冻结，下一手不可打");
-          this.refresh();
-          return;
-        }
-        if (this.selected.has(uid)) this.selected.delete(uid);
-        else if (this.selected.size < max) this.selected.add(uid);
-        else pushLog(`最多选 ${max} 张牌`);
-        this.refresh();
+      const def = card ? cardById.get(card.cardId) : undefined;
+      const col = i % 6;
+      const row = Math.floor(i / 6);
+      const blocked = uid === frozen || session.run.koiKoi.pendingChoice;
+
+      const c = this.createCardContainer(64 + i * 85, 740, uid, def, card, !blocked);
+      c.setDepth(i);
+      const bg = c.getAt(0) as Phaser.GameObjects.Image;
+      if (blocked) {
+        bg.setTint(0x444444);
+        c.add(this.add.text(75, 15, "🔒", { fontSize: "12px" }).setOrigin(0.5));
+      }
+
+      const hasMatch = session.run.fieldCards.some(fUid => {
+        const fi = session.run.cardsByUid[fUid];
+        const fd = fi ? cardById.get(fi.cardId) : undefined;
+        return (fi?.monthOverride ?? fd?.month) === (card?.monthOverride ?? def?.month);
       });
-      this.cardTexts.push(text);
+      if (hasMatch) {
+        const starBg = this.add.rectangle(75, 15, 18, 18, 0xa87d29).setOrigin(0.5);
+        const star = this.add.text(75, 15, "✦", { color: "#fff", fontSize: "12px" }).setOrigin(0.5);
+        c.add([starBg, star]);
+      }
+
+      const colorStr = 等阶底色(card?.rankOverride ?? def?.rank ?? "KASU");
+      let tintColor = 0xffffff;
+      if (colorStr.startsWith('#')) tintColor = parseInt(colorStr.replace('#', '0x'));
+
+      if (!blocked) {
+        c.on("pointerover", () => {
+          c.y -= 15;
+          bg.setTint(0x5a3a18);
+          let previewMatchUid: string | undefined;
+
+          // Hover Preview matching fields
+          session.run.fieldCards.forEach((fUid, idx) => {
+            const fi = session.run.cardsByUid[fUid];
+            const fd = fi ? cardById.get(fi.cardId) : undefined;
+            if ((fi?.monthOverride ?? fd?.month) === (card?.monthOverride ?? def?.month)) {
+                const fCardContainer = this.fieldCards[idx];
+                if (fCardContainer) {
+                   const fBg = fCardContainer.getAt(0) as Phaser.GameObjects.Image;
+                   fBg.setTint(0x356e42); // Highlight green/emerald
+                }
+                if (!previewMatchUid) previewMatchUid = fUid;
+            }
+          });
+
+          if (previewMatchUid) {
+            this.updateCapturedLabel([...session.run.capturedCards, uid, previewMatchUid]);
+          }
+        });
+
+        c.on("pointerout", () => {
+          c.y += 15;
+          bg.setTint(tintColor);
+          // Remove Preview
+          session.run.fieldCards.forEach((fUid, idx) => {
+            const fCardContainer = this.fieldCards[idx];
+            if (fCardContainer) {
+                const fi = session.run.cardsByUid[fUid];
+                const fd = fi ? cardById.get(fi.cardId) : undefined;
+                const r = fi?.rankOverride ?? fd?.rank ?? "KASU";
+                const cStr = 等阶底色(r);
+                (fCardContainer.getAt(0) as Phaser.GameObjects.Image).setTint(parseInt(cStr.replace('#', '0x')));
+            }
+          });
+          this.updateCapturedLabel();
+        });
+
+        c.on("pointerup", () => {
+          if (session.run.koiKoi.pendingChoice || this.resultPanel) return;
+          this.focusedUid = uid;
+          if (typeof this.armedCharmIndex === "number") {
+            this.castCharmAt(this.armedCharmIndex, uid);
+            return;
+          }
+          this.onPlayCard(uid);
+        });
+      }
+
+      this.handCards.push(c);
     });
+  }
+
+  private onPlayCard(handUid: string): void {
+    if (session.run.playsLeft <= 0) return;
+    const result = playOneCard(session.run, handUid);
+    const inst = session.run.cardsByUid[handUid];
+    const def = inst ? cardById.get(inst.cardId) : undefined;
+    const cardDisplayName = def ? `${花牌原名(def)}` : handUid;
+
+    if (result.handMatchUid) {
+      const fi = session.run.cardsByUid[result.handMatchUid];
+      const fd = fi ? cardById.get(fi.cardId) : undefined;
+      pushLog(`✓ 【${cardDisplayName}】配对了场上的【${fd ? 花牌原名(fd) : result.handMatchUid}】`);
+    } else {
+      pushLog(`打出【${cardDisplayName}】落场`);
+    }
+
+    if (result.newComboNames.length > 0) pushLog(`★ 新役：${result.newComboNames.join("、")}`);
+    
+    if (result.stageCleared) {
+      const reward = settleStageAndPrepareShop(session.run);
+      saveRun(session.run);
+      this.showResultPanel(result.scoreBreakdown?.finalScore ?? 0, reward);
+      return;
+    }
+    if (result.runLost) {
+      clearRunSave();
+      this.showTerminalPanel("败北", `挑战失败，本局结束。`);
+      return;
+    }
+    this.refresh();
   }
 
   private renderInfo(): void {
     const stage = stages[Math.min(session.run.stageIndex, stages.length - 1)];
-    const relicNames = getRelicSlots(session.run).map((id, index) => `槽${index + 1}:${id ? relicById.get(id)?.name ?? id : "空"}`);
-    const charmNames = getCharmSlots(session.run).map((id, index) =>
-      `${this.armedCharmIndex === index ? "▶" : "  "}槽${index + 1}:${id ? charmById.get(id)?.name ?? id : "空"}`,
-    );
+    const relicNames = getRelicSlots(session.run).map((id, i) => `槽${i + 1}:${id ? relicById.get(id)?.name : "空"}`);
+    const charmNames = getCharmSlots(session.run).map((id, i) => `${this.armedCharmIndex === i ? "▶" : ""}槽${i + 1}:${id ? charmById.get(id)?.name : "空"}`);
     const parts = [
-      `季节环境：${季节名(stage.season)}    关卡干扰：${stage.bossRuleText || "无"}`,
-      `已拥有法宝：${relicNames.join("、") || "无"}`,
-      `符咒库存：${charmNames.join("  ") || "无"}`,
-      `${typeof this.armedCharmIndex === "number" ? `待施放符咒：槽${this.armedCharmIndex + 1}` : "待施放符咒：无"}`,
-      `Koi-Koi：${session.run.koiKoi.continued ? "继续中" : "未继续"} ${session.run.koiKoi.success ? "成功" : session.run.koiKoi.failed ? "失败" : ""}`,
+      `季节：${季节名(stage.season)}    持有法宝：${relicNames.join("、")}（可点顶部图标出售）`,
+      `符咒：${charmNames.join("  ")}${typeof this.armedCharmIndex === "number" ? `  【待施放:槽${this.armedCharmIndex + 1}】` : ""}`,
+      `点击手牌即可出牌。相同月份将自动配对并进入收获区。成役时可触发Koi-Koi加倍评分！`,
     ];
-    收束文本对象(this.infoText!, 限制多行(parts.join("\n"), 5, 46), {
-      width: 860,
-      height: 118,
-      maxLines: 5,
-      maxCharsLastLine: 46,
-      minFontSize: 12,
-    });
+    this.infoText?.setText(限制多行(parts.join("\n"), 4, 60));
   }
 
   private renderSidebar(): void {
     if (!this.sidebarTitleText || !this.sidebarBodyText) return;
     const stage = stages[Math.min(session.run.stageIndex, stages.length - 1)];
-    const relicSummary = getRelicSlots(session.run)
-      .map((id, index) => {
-        const relic = id ? relicById.get(id) : undefined;
-        return `法宝槽${index + 1}\n${id ? `${relic?.name ?? id}\n${relic?.effectScript ?? ""}` : "空槽"}`;
-      })
-      .join("\n\n");
-    const comboList = combos.map((c) => `- ${c.name}：${c.conditionText} / ${c.baseMultText}`);
-    const charmSummary = getCharmSlots(session.run)
-      .map((id, index) => {
-        const charm = id ? charmById.get(id) : undefined;
-        return `${this.armedCharmIndex === index ? "▶" : "  "}符咒槽${index + 1}\n${id ? `${charm?.name ?? id}\n${charm?.effectScript ?? ""}` : "空槽"}`;
-      })
-      .join("\n\n");
-
-    let title = "";
-    let body = "";
-    let fontFamily = "Microsoft YaHei";
-    const options = { width: 572, height: 640, maxLines: 28, maxCharsLastLine: 42, minFontSize: 11, lineSpacing: 5 };
-
+    
     if (this.activeSidebarTab === "overview") {
-      title = "符咒与总览";
-      body = [
+      this.sidebarTitleText.setText("战场总览");
+
+      let koiKoiStatus = `金币：${session.run.gold}   倍率：×${session.run.koiKoiMultiplier}`;
+      if (session.run.koiKoiMultiplier > 1) {
+         koiKoiStatus += `\n★因已开始 Koi-Koi，须达成新役才能加算！\n已锁定役：${session.run.koiKoi.baselineCombos.join("、") || "无"}\n(若最终无新役结算将受惩罚)`;
+      }
+
+      this.sidebarBodyText.setText([
         `季节环境：${季节名(stage.season)}`,
         `关卡干扰：${stage.bossRuleText || "无"}`,
-        "已拥有法宝",
-        relicSummary,
-        `当前金币：${session.run.gold}`,
-        `当前总分：${session.run.totalScore}`,
-        "",
-        `符咒库存（${session.run.charms.length}/${MAX_CHARM_SLOTS}）`,
-        charmSummary,
-        typeof this.armedCharmIndex === "number" ? `\n当前待施放：符咒槽${this.armedCharmIndex + 1}` : "\n当前待施放：无",
-      ].join("\n");
+        koiKoiStatus,
+        `已捕获：${session.run.capturedCards.length}张  场上剩余：${session.run.fieldCards.length}张`,
+        `Boss抢走：${session.run.bossCollected.length}张`,
+        `\n法宝插槽顶部直接展示并支持出售`
+      ].join("\n"));
+      this.sidebarBodyText.setFontFamily(清晰正文字体);
     } else if (this.activeSidebarTab === "combos") {
-      title = "羁绊与路线";
-      body = [
-        "基础计分规则",
-        基础计分说明[1],
-        基础计分说明[2],
-        "每次出牌只取一组最高收益组合。",
-        "不在该组合内的牌不会参与本次计分。",
-        "达标后可选 Koi-Koi，失败会导致金币减半。",
-        "",
-        ...等阶基础说明,
-        "",
-        ...羁绊速查说明,
-        "",
-        ...关键牌提示,
-        "",
-        "组合明细（条件 / 基础倍率）",
-        ...comboList,
-      ].join("\n");
+      this.sidebarTitleText.setText("流派与役");
+      const comboList = combos.map(c => `- ${c.name}：${c.conditionText} / ${c.baseMultText}`).join("\n");
+      this.sidebarBodyText.setText("【计分逻辑】\n" + 基础计分说明[2] + "\n\n【常见役】\n" + comboList);
+      this.sidebarBodyText.setFontFamily(清晰正文字体);
     } else if (this.activeSidebarTab === "logs") {
-      title = "最近事件";
-      body = session.log.length > 0 ? session.log.slice(0, 18).join("\n") : "当前还没有事件。";
-      fontFamily = "Consolas, Microsoft YaHei";
+      this.sidebarTitleText.setText("最近事件");
+      this.sidebarBodyText.setText(session.log.length > 0 ? session.log.slice(0, 22).join("\n") : "暂无事件");
+      this.sidebarBodyText.setFontFamily(`Consolas, ${清晰正文字体}`);
     } else {
-      title = "卡牌详情";
-      body = this.focusedCardSummary();
+      this.sidebarTitleText.setText("选中牌详情");
+      this.sidebarBodyText.setText(this.focusedCardSummary());
+      this.sidebarBodyText.setFontFamily(清晰正文字体);
     }
-
-    this.sidebarTitleText.setText(title);
-    this.sidebarBodyText.setFontFamily(fontFamily);
-    收束文本对象(this.sidebarBodyText, 限制多行(body, options.maxLines, options.maxCharsLastLine), options);
-  }
-
-  private renderPreview(): void {
-    if (!this.previewText) return;
-    const selected = Array.from(this.selected);
-    if (selected.length === 0) {
-      this.previewText.setText("已选牌预估：未选择卡牌。");
-      return;
-    }
-    const p = previewPlayScore(session.run, selected);
-    this.previewText.setText(
-      限制多行(
-        [
-          `已选牌预估：${selected.length} 张`,
-          `预计得分：${p.finalScore}（筹码${p.chipsFromCards + p.chipsFromCombos + p.chipsFromEffects} × 倍率${p.addedMult} × 乘区${p.multiplicative.toFixed(2)}）`,
-          `预计取高组合：${p.comboNames.join("、")}；参与牌数：${p.usedCardUids.length}`,
-        ].join("\n"),
-        3,
-        48,
-      ),
-    );
-    this.previewText.setFixedSize(860, 70);
   }
 
   private renderKoiKoi(): void {
@@ -465,86 +561,50 @@ export class BattleScene extends Phaser.Scene {
     this.koiPanel = undefined;
     if (!session.run.koiKoi.pendingChoice) return;
 
-    const panel = this.add.container(640, 330);
-    const bg = this.add.rectangle(0, 0, 520, 220, 0x180f09, 0.93).setStrokeStyle(2, 0xcba86a);
-    const text = this.add.text(
-      -230,
-      -82,
-      "已达关卡目标分数。\n要执行 Koi-Koi 吗？\n继续将获得永久成长机会，但失败会让本关金币收益减半。",
-      { color: "#fcefd6", fontFamily: "Microsoft YaHei", fontSize: "18px", wordWrap: { width: 460 } },
-    );
-    const endBtn = this.add
-      .text(-160, 56, "结束并结算", {
-        color: "#fef2d7",
-        backgroundColor: "#5b4428",
-        fontSize: "16px",
-        padding: { left: 14, right: 14, top: 8, bottom: 8 },
-      })
-      .setInteractive({ useHandCursor: true });
-    const contBtn = this.add
-      .text(40, 56, "Koi-Koi 继续", {
-        color: "#fef2d7",
-        backgroundColor: "#824019",
-        fontSize: "16px",
-        padding: { left: 14, right: 14, top: 8, bottom: 8 },
-      })
-      .setInteractive({ useHandCursor: true });
+    const panel = this.add.container(this.scale.width / 2, 360);
+    const bg = this.add.image(0, 0, "card_back").setDisplaySize(600, 300).setAlpha(0.95);
+    const border = this.add.rectangle(0, 0, 600, 300).setStrokeStyle(4, 0xcba86a);
+    
+    const mulNext = session.run.koiKoiMultiplier * 2;
+    const text = this.add.text(-260, -110, [
+      `★ 触发新役：「${session.run.koiKoi.triggerComboName}」！`,
+      `当前 Koi-Koi 倍率：×${session.run.koiKoiMultiplier}`,
+      ``,
+      `选择「结束结算」 → 锁定当前奖励并通关`,
+      `选择「继续 Koi-Koi」 → 倍率预升至 ×${mulNext}，贪心凑新役`,
+      `（警告：若翻车未凑成任何新役，将面临惩罚）`
+    ].join("\n"), { color: "#fcefd6", fontFamily: "Microsoft YaHei", fontSize: "17px", wordWrap: { width: 520 }, lineSpacing: 8 });
+
+    const endBtn = this.add.text(-150, 80, "结束结算", { color: "#fef2d7", backgroundColor: "#5b4428", fontSize: "20px", padding: { left: 24, right: 24, top: 12, bottom: 12 } }).setInteractive();
+    const contBtn = this.add.text(50, 80, `继续 Koi-Koi ×${mulNext}`, { color: "#fef2d7", backgroundColor: "#824019", fontSize: "20px", padding: { left: 24, right: 24, top: 12, bottom: 12 } }).setInteractive();
 
     endBtn.on("pointerup", () => {
-      handleKoiKoiChoice(session.run, "END");
+      const score = handleKoiKoiChoice(session.run, "END");
       const reward = settleStageAndPrepareShop(session.run);
-      pushLog(`选择结束，结算 +${reward} 金币`);
-      if (session.run.stageIndex >= stages.length - 1) {
-        clearRunSave();
-        this.showTerminalPanel("通关", `你已经通过终章，总金币结算 +${reward}。`);
-      } else {
-        saveRun(session.run);
-        this.showResultPanel(0, reward);
-      }
+      saveRun(session.run);
+      this.showResultPanel(score.finalScore, reward);
     });
     contBtn.on("pointerup", () => {
       handleKoiKoiChoice(session.run, "CONTINUE");
-      pushLog("选择继续：需在剩余回合再凑出一个组合");
       this.refresh();
     });
 
-    panel.add([bg, text, endBtn, contBtn]);
+    panel.add([bg, border, text, endBtn, contBtn]);
     this.koiPanel = panel;
   }
 
   private showResultPanel(lastScore: number, reward: number): void {
     this.resultPanel?.destroy(true);
     const panel = this.add.container(this.scale.width / 2, this.scale.height / 2);
-    const bg = this.add.rectangle(0, 0, 640, 320, 0x120d09, 0.94).setStrokeStyle(2, 0xd2ad73);
+    const bg = this.add.rectangle(0, 0, 640, 340, 0x120d09, 0.94).setStrokeStyle(2, 0xd2ad73);
     const koiText = session.run.koiKoi.continued
-      ? session.run.koiKoi.success
-        ? "Koi-Koi 成功：获得成长奖励。"
-        : session.run.koiKoi.failed
-          ? "Koi-Koi 失败：本关金币收益减半。"
-          : "Koi-Koi 进行中。"
-      : "未执行 Koi-Koi。";
-    const text = this.add.text(
-      -280,
-      -110,
-      ["本关结算", `本手得分：${lastScore}`, `本关累计：${session.run.scoreThisStage}`, `金币奖励：+${reward}`, koiText].join("\n"),
-      { color: "#f7e9cd", fontFamily: "Microsoft YaHei", fontSize: "24px", lineSpacing: 8, wordWrap: { width: 560 } },
-    );
-    const btn = this.add
-      .text(0, 100, "前往阴阳屋", {
-        color: "#fef2d8",
-        backgroundColor: "#5f3f1d",
-        fontFamily: "Microsoft YaHei",
-        fontSize: "24px",
-        padding: { left: 20, right: 20, top: 10, bottom: 10 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    btn.on("pointerup", () => {
-      panel.destroy(true);
-      this.resultPanel = undefined;
-      this.scene.start("shop");
-    });
-    panel.add([bg, text, btn]);
+      ? session.run.koiKoi.success ? `Koi-Koi 成功！最终倍率 ×${session.run.koiKoiMultiplier}` : "Koi-Koi 失败：金币惩罚。"
+      : "安全着陆。";
+    
+    panel.add([bg,
+      this.add.text(-290, -120, `打分：${lastScore}\n收益：+${reward}\n${koiText}`, { color: "#f7e9cd", fontSize: "28px", lineSpacing: 14 }),
+      创建主题按钮(this, 180, 100, "前往阴阳屋", () => { panel.destroy(true); this.resultPanel = undefined; this.scene.start("shop"); }, "red")
+    ]);
     this.resultPanel = panel;
   }
 
@@ -552,28 +612,10 @@ export class BattleScene extends Phaser.Scene {
     this.resultPanel?.destroy(true);
     const panel = this.add.container(this.scale.width / 2, this.scale.height / 2);
     const bg = this.add.rectangle(0, 0, 700, 340, 0x120d09, 0.95).setStrokeStyle(2, 0xd2ad73);
-    const text = this.add.text(
-      -300,
-      -115,
-      [title, body, `到达关卡：第${session.run.stageIndex + 1}关`, `总分：${session.run.totalScore}`, `最终金币：${session.run.gold}`].join("\n"),
-      { color: "#f7e9cd", fontFamily: "Microsoft YaHei", fontSize: "24px", lineSpacing: 8, wordWrap: { width: 600 } },
-    );
-    const btn = this.add
-      .text(0, 105, "返回主界面", {
-        color: "#fef2d8",
-        backgroundColor: "#5f3f1d",
-        fontFamily: "Microsoft YaHei",
-        fontSize: "24px",
-        padding: { left: 20, right: 20, top: 10, bottom: 10 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    btn.on("pointerup", () => {
-      panel.destroy(true);
-      this.resultPanel = undefined;
-      this.scene.start("boot");
-    });
-    panel.add([bg, text, btn]);
+    panel.add([bg,
+      this.add.text(-300, -115, `${title}\n${body}\n最终金币：${session.run.gold}`, { color: "#f7e9cd", fontSize: "24px", lineSpacing: 8 }),
+      创建主题按钮(this, 200, 100, "返回主界面", () => { panel.destroy(true); this.scene.start("boot"); }, "red")
+    ]);
     this.resultPanel = panel;
   }
 
@@ -582,44 +624,22 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private focusedCardSummary(): string {
-    if (!this.focusedUid) {
-      return "点击任意手牌后，这里会显示该牌的基础值、强化值、词条和符咒记录。";
-    }
+    if (!this.focusedUid) return "选牌可查看详情。法宝可在顶部直接点击出售。";
     const inst = session.run.cardsByUid[this.focusedUid];
-    if (!inst) return "当前选中牌已离开手牌。";
-    const def = cardById.get(inst.cardId);
-    if (!def) return "缺少卡牌数据。";
-    const month = inst.monthOverride ?? def.month;
-    const rank = inst.rankOverride ?? def.rank;
-    const chips = def.baseChips + inst.bonusChips;
-    const mult = def.baseMult + inst.bonusMult;
-    return [
-      `花牌原名：${花牌原名(def)}`,
-      `妖怪名：${def.name}`,
-      `月份：${月份名[month]}    等阶：${等阶名(rank)}`,
-      `基础筹码：${def.baseChips}  强化后：${chips}`,
-      `基础倍率：${def.baseMult}  强化后：${mult}`,
-      `词条：${inst.traits.map((t) => 词条名(t)).join("、") || "无"}`,
-      `已施加符咒：${inst.appliedCharmIds?.join("、") || "无"}`,
-      `传闻：${def.lore}`,
-    ].join("\n");
+    const def = inst ? cardById.get(inst.cardId) : undefined;
+    return def ? `${花牌原名(def)}\n月份:${月份名[inst.monthOverride ?? def.month]}\n等级:${等阶名(inst.rankOverride ?? def.rank)}\n传闻:${def.lore}` : "未知";
   }
 
   private castCharmAt(slotIndex: number, targetUid?: string): void {
     const charmId = session.run.charms[slotIndex];
-    if (!charmId) {
-      this.armedCharmIndex = undefined;
-      this.refresh();
-      return;
-    }
+    if (!charmId) { this.armedCharmIndex = undefined; this.refresh(); return; }
     const result = applyCharm(session.run, charmId, targetUid);
     if (!result.startsWith("失败：")) {
       removeCharmAt(session.run, slotIndex);
       this.armedCharmIndex = undefined;
-      this.selectedCharmIndex = Math.max(0, Math.min(slotIndex, session.run.charms.length - 1));
       this.activeSidebarTab = "overview";
     }
-    pushLog(`[${charmById.get(charmId)?.name ?? charmId}] ${result}`);
+    pushLog(`[咒] ${result}`);
     this.refresh();
   }
 }

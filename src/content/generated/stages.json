@@ -19,7 +19,7 @@
     "monthSet": "3月 (樱)",
     "targetScoreText": "2500",
     "boss": "酒吞童子·醉樱",
-    "bossRuleText": "[宿醉]：打出的第一张牌不计分。",
+    "bossRuleText": "[消沉]：所有卡牌的基础筹码在结算时减半。",
     "season": "SPRING",
     "shopConfig": {
       "cards": 3,

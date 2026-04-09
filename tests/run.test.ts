@@ -8,7 +8,7 @@ describe("run setup", () => {
 
     expect(Object.keys(run.cardsByUid)).toHaveLength(cards.length);
     expect(run.hand).toHaveLength(rules.maxHandSize);
-    expect(run.drawPile.length + run.hand.length + run.discardPile.length).toBe(cards.length);
+    expect(run.drawPile.length + run.hand.length + run.discardPile.length + run.fieldCards.length).toBe(cards.length);
   });
 
   it("不同 seed 的初始手牌应有差异", () => {

@@ -14,7 +14,18 @@ import {
 import { clearShopOffer, ensureShopOffer, pushLog, session } from "../session";
 import { saveRun } from "../../save/storage";
 import { 季节名, 月份名, 等阶名, 稀有度名, 花牌原名 } from "../uiText";
-import { 创建主题按钮, 墨金主题, 收束文本对象, 绘制场景底纹, 绘制描边面板, 绘制标题签, 限制多行 } from "../uiTheme";
+import {
+  创建悬浮提示,
+  创建主题按钮,
+  墨金主题,
+  收束文本对象,
+  清晰正文字体,
+  清晰标题字体,
+  绘制场景底纹,
+  绘制描边面板,
+  绘制标题签,
+  限制多行,
+} from "../uiTheme";
 
 export class ShopScene extends Phaser.Scene {
   constructor() {
@@ -30,16 +41,17 @@ export class ShopScene extends Phaser.Scene {
     绘制描边面板(this, 1290, 92, 276, h - 126, { fill: 0x201713, alpha: 0.95, radius: 22 });
     const stage = stages[Math.min(session.run.stageIndex, stages.length - 1)];
     const offer = ensureShopOffer();
+    const tooltip = 创建悬浮提示(this);
 
     this.add.text(40, 20, `阴阳屋 - 第${session.run.stageIndex + 1}关后整备`, {
       color: 墨金主题.金亮,
       fontSize: "28px",
-      fontFamily: "Noto Serif SC, Microsoft YaHei",
+      fontFamily: 清晰标题字体,
     });
     this.add.text(40, 64, `当前金币：${session.run.gold}   季节：${季节名(stage.season)}   结算奖励：${session.run.stageRewardPending}金币`, {
       color: 墨金主题.文本次,
       fontSize: "18px",
-      fontFamily: "Microsoft YaHei",
+      fontFamily: 清晰正文字体,
     });
 
     绘制标题签(this, 48, 104, "妖怪招募", 180);
@@ -64,7 +76,7 @@ export class ShopScene extends Phaser.Scene {
         .text(x, y, 限制多行(`【${花牌原名(card)}】\n妖怪：${card.name}\n月份：${月份名[card.month]}  等阶：${等阶名(card.rank)}\n基础筹码：${card.baseChips}  基础倍率：${card.baseMult}\n定位：${card.note || "通用补强"}\n价格：${price}金币`, 6, 34), {
           color: 墨金主题.文本主,
           fontSize: "14px",
-          fontFamily: "Microsoft YaHei",
+          fontFamily: 清晰正文字体,
           padding: { left: 8, right: 8, top: 8, bottom: 8 },
         })
         .setInteractive({ useHandCursor: true });
@@ -107,7 +119,7 @@ export class ShopScene extends Phaser.Scene {
         .text(x, y, 限制多行(`${relic.name}（${稀有度名(relic.rarity)}）\n价格：${relic.price}金币\n${relic.effectScript}\n构筑提示：${relic.buildHint}\n${bought ? "已拥有" : slotsFull ? "法宝槽已满，先卖出再买" : "点击购买"}`, 5, 52), {
           color: 墨金主题.文本主,
           fontSize: "14px",
-          fontFamily: "Microsoft YaHei",
+          fontFamily: 清晰正文字体,
           padding: { left: 10, right: 10, top: 10, bottom: 10 },
         })
         .setInteractive({ useHandCursor: !bought && !slotsFull });
@@ -150,7 +162,7 @@ export class ShopScene extends Phaser.Scene {
         .text(x, y, 限制多行(`${charm.name}\n价格：${charm.price}金币\n${charm.effectScript}\n${boughtBefore ? "本局已购买过，不能重复购买" : slotsFull ? "符咒槽已满，先消耗后再买" : "点击购买"}`, 4, 52), {
           color: 墨金主题.文本主,
           fontSize: "14px",
-          fontFamily: "Microsoft YaHei",
+          fontFamily: 清晰正文字体,
           padding: { left: 10, right: 10, top: 10, bottom: 10 },
         })
         .setInteractive({ useHandCursor: !boughtBefore && !slotsFull });
@@ -172,51 +184,61 @@ export class ShopScene extends Phaser.Scene {
 
     const relicSlots = getRelicSlots(session.run);
     const charmSlots = getCharmSlots(session.run);
-    const relicDump = relicSlots
-      .map((id, i) => `法宝槽 ${i + 1}：${id ? relicById.get(id)?.name ?? id : "空"}`)
-      .join("\n");
-    const charmDump = charmSlots.map((id, i) => `符咒槽 ${i + 1}：${id ? charmById.get(id)?.name ?? id : "空"}`).join("\n");
     绘制标题签(this, 1304, 104, "当前持有", 180);
     const inventoryText = this.add.text(1310, 150, "", {
       color: 墨金主题.文本次,
-      fontFamily: "Microsoft YaHei",
+      fontFamily: 清晰正文字体,
       fontSize: "14px",
     });
-    收束文本对象(inventoryText, 限制多行(`法宝槽位（${session.run.relics.length}/${MAX_RELIC_SLOTS}）:\n${relicDump}\n\n符咒槽位（${session.run.charms.length}/${MAX_CHARM_SLOTS}）:\n${charmDump}`, 16, 18), {
+    收束文本对象(inventoryText, 限制多行(`法宝槽位（${session.run.relics.length}/${MAX_RELIC_SLOTS}）\n鼠标悬停图标查看效果\n\n符咒槽位（${session.run.charms.length}/${MAX_CHARM_SLOTS}）\n鼠标悬停图标查看效果`, 8, 18), {
       width: 220,
-      height: 240,
-      maxLines: 16,
+      height: 92,
+      maxLines: 8,
       maxCharsLastLine: 18,
       minFontSize: 11,
     });
 
-    绘制标题签(this, 1304, 420, "整备操作", 180);
     relicSlots.forEach((relicId, slotIndex) => {
-      const label = relicId ? `卖出槽${slotIndex + 1}` : `槽${slotIndex + 1}为空`;
-      创建主题按钮(
-        this,
-        1310,
-        470 + slotIndex * 42,
-        label,
-        () => {
-          if (!relicId) return;
-          const gain = sellRelic(session.run, relicId, slotIndex);
-          pushLog(`卖出法宝槽${slotIndex + 1} +${gain}金币`);
-          this.scene.restart();
-        },
-        relicId ? "brown" : "green",
-      ).setStyle({
-        fontSize: "14px",
-        padding: { left: 14, right: 14, top: 8, bottom: 8 },
+      const x = 1312 + (slotIndex % 2) * 108;
+      const y = 260 + Math.floor(slotIndex / 2) * 56;
+      const relic = relicId ? relicById.get(relicId) : undefined;
+      const icon = this.add.text(x, y, relicId ? `法${slotIndex + 1}` : "空", {
+        color: relicId ? 墨金主题.金亮 : 墨金主题.文本淡,
+        backgroundColor: relicId ? "#5a3d24" : "#35302c",
+        fontFamily: 清晰正文字体,
+        fontSize: "18px",
+        padding: { left: 16, right: 16, top: 12, bottom: 12 },
+      });
+      tooltip.attach(icon, relicId ? [`法宝槽${slotIndex + 1}`, relic?.name ?? relicId, relic?.effectScript ?? "", relic?.buildHint ?? ""] : [`法宝槽${slotIndex + 1}`, "空槽"]);
+      icon.on("pointerup", () => {
+        if (!relicId) return;
+        const gain = sellRelic(session.run, relicId, slotIndex);
+        pushLog(`卖出法宝槽${slotIndex + 1} +${gain}金币`);
+        this.scene.restart();
       });
     });
 
-    const sellDesc = this.add.text(1310, 646, "", {
+    charmSlots.forEach((charmId, slotIndex) => {
+      const x = 1312 + (slotIndex % 2) * 108;
+      const y = 380 + Math.floor(slotIndex / 2) * 56;
+      const charm = charmId ? charmById.get(charmId) : undefined;
+      const icon = this.add.text(x, y, charmId ? `咒${slotIndex + 1}` : "空", {
+        color: charmId ? "#ead9ff" : 墨金主题.文本淡,
+        backgroundColor: charmId ? "#4b3558" : "#35302c",
+        fontFamily: 清晰正文字体,
+        fontSize: "18px",
+        padding: { left: 16, right: 16, top: 12, bottom: 12 },
+      });
+      tooltip.attach(icon, charmId ? [`符咒槽${slotIndex + 1}`, charm?.name ?? charmId, charm?.effectScript ?? "", `价格：${charm?.price ?? "?"}金币`] : [`符咒槽${slotIndex + 1}`, "空槽"]);
+    });
+
+    绘制标题签(this, 1304, 468, "整备操作", 180);
+    const sellDesc = this.add.text(1310, 694, "", {
       color: 墨金主题.文本淡,
-      fontFamily: "Microsoft YaHei",
+      fontFamily: 清晰正文字体,
       fontSize: "13px",
     });
-    收束文本对象(sellDesc, "法宝现在有独立槽位。整备阶段可以按槽位卖出，腾出位置再买新的法宝。", {
+    收束文本对象(sellDesc, "点击上方已有法宝图标即可出售。悬停图标能先查看效果和构筑提示。", {
       width: 210,
       height: 78,
       maxLines: 4,

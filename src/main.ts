@@ -9,6 +9,11 @@ const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: "app",
   backgroundColor: "#1d1b17",
+  render: {
+    antialias: true,
+    roundPixels: true,
+    pixelArt: false,
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

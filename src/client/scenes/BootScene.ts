@@ -9,6 +9,12 @@ export class BootScene extends Phaser.Scene {
     super("boot");
   }
 
+  preload(): void {
+    this.load.image("card_front", "assets/images/card_front.png");
+    this.load.image("card_back", "assets/images/card_back.png");
+    this.load.image("button_bg", "assets/images/button_bg.png");
+  }
+
   create(): void {
     const w = this.scale.width;
     const h = this.scale.height;
@@ -17,118 +23,72 @@ export class BootScene extends Phaser.Scene {
     绘制描边面板(this, 150, 126, 620, 560, { fill: 0x241a15, alpha: 0.94, radius: 24 });
     绘制描边面板(this, 810, 126, 640, 560, { fill: 0x1d1713, alpha: 0.94, radius: 24 });
 
-    this.add.text(180, 160, "花牌肉鸽", {
+    this.add.text(180, 150, "花牌肉鸽", {
       color: 墨金主题.金亮,
       fontSize: "80px",
       fontFamily: "Noto Serif SC, Microsoft YaHei",
     });
-    this.add.text(184, 254, "局内打牌 + 局外商店 + 章节推进", {
+    this.add.text(184, 240, "局内打牌 + 局外商店 + 章节推进", {
       color: 墨金主题.文本次,
       fontSize: "24px",
       fontFamily: "Microsoft YaHei",
     });
-    const subTitle = this.add.text(184, 310, "", {
+    this.add.text(184, 280, "以花札原型构筑牌组，在九重关卡里养成自己的役与法宝。", {
       color: 墨金主题.文本淡,
       fontSize: "18px",
       fontFamily: "Microsoft YaHei",
-    });
-    收束文本对象(subTitle, "以花札原型构筑牌组，在九重关卡里养成自己的役与法宝。", {
-      width: 520,
-      height: 54,
-      maxLines: 2,
-      maxCharsLastLine: 30,
-      minFontSize: 14,
+      wordWrap: { width: 560 }
     });
 
-    const start = this.makeButton("新开一局", 182, 414, () => {
+    const start = this.makeButton("新开一局", 182, 380, () => {
       resetSession(makeFreshSeed());
       this.scene.start("battle");
     });
-    const load = this.makeButton("读取存档", 182, 486, () => {
+    const load = this.makeButton("读取存档", 182, 450, () => {
       const saved = loadRun();
       if (!saved) return;
       session.run = saved;
       this.scene.start("battle");
     });
 
-    this.add.text(184, 580, "快速上手", {
+    this.add.text(184, 530, "快速上手", {
       color: 墨金主题.金亮,
       fontSize: "22px",
       fontFamily: "Noto Serif SC, Microsoft YaHei",
     });
-    const helpText = this.add.text(184, 620, "", {
+    this.add.text(184, 570, "1. 点击手牌打出，若场上有相同月份的牌，会自动配对并进入收获区。\n2. 每次打牌并配对后，系统还会从牌堆自动翻出一张新牌以配对落场。\n3. 当收获区的牌凑成新役时，可直接结算，或选择Koi-Koi追求成倍奖励！", {
       color: 墨金主题.文本次,
       fontSize: "16px",
       fontFamily: "Microsoft YaHei",
-      lineSpacing: 5,
+      lineSpacing: 8,
+      wordWrap: { width: 560 }
     });
-    收束文本对象(
-      helpText,
-      限制多行("1. 点击手牌选中，最多打出 5 张，拿到镜晶之影后可到 6 张。\n2. 先用同月和短册/种札稳定过渡，再追猪鹿蝶、青短/赤短、三光以上。\n3. 达标后可直接收分，也可以 Koi-Koi 继续冲更高成长。", 6, 40),
-      {
-        width: 520,
-        height: 130,
-        maxLines: 6,
-        maxCharsLastLine: 40,
-        minFontSize: 12,
-        lineSpacing: 5,
-      },
-    );
 
-    this.add.text(846, 160, "役与方向", {
+    this.add.text(820, 150, "役与方向", {
       color: 墨金主题.金亮,
       fontSize: "28px",
       fontFamily: "Noto Serif SC, Microsoft YaHei",
     });
-    const comboText = this.add.text(846, 214, "", {
+    this.add.text(820, 200, `常见组合：\n同月（两张同月起步）、短册（红青条）、光札等。\n\n建议节奏：\n前期用同月/短册体系稳住，商店优先拿能给你明确路线的法宝；\n中期围绕酒盅、种札去补关键件；\n后期再拼光/种的爆发与 Koi-Koi 成倍贪分！`, {
       color: 墨金主题.文本次,
       fontSize: "18px",
       fontFamily: "Microsoft YaHei",
-      lineSpacing: 7,
+      lineSpacing: 8,
+      wordWrap: { width: 580 }
     });
-    收束文本对象(
-      comboText,
-      限制多行(
-        `常见组合：${combos
-          .slice(0, 6)
-          .map((c) => c.name)
-          .join("、")}\n\n建议节奏：\n前期用同月/短册体系稳住，商店优先拿能给你明确路线的法宝；中期围绕酒盅、赤短、青短和猪鹿蝶去补关键件；后期再拼光札爆发与 Koi-Koi 贪分。`,
-        12,
-        44,
-      ),
-      {
-        width: 540,
-        height: 250,
-        maxLines: 12,
-        maxCharsLastLine: 44,
-        minFontSize: 13,
-        lineSpacing: 7,
-      },
-    );
 
-    this.add.text(846, 486, "当前版本重点", {
+    this.add.text(820, 480, "当前版本重点", {
       color: 墨金主题.金亮,
       fontSize: "22px",
       fontFamily: "Noto Serif SC, Microsoft YaHei",
     });
-    const featureText = this.add.text(846, 526, "", {
+    this.add.text(820, 520, "已支持战斗、首领、商店、Koi-Koi结算、法宝、符咒和回合存档。当前极简程序化界面支持悬停预览。后续可逐步导入高阶花札及首领插画，继续扩充卡池。", {
       color: 墨金主题.文本淡,
       fontSize: "16px",
       fontFamily: "Microsoft YaHei",
-      lineSpacing: 6,
+      lineSpacing: 8,
+      wordWrap: { width: 580 }
     });
-    收束文本对象(
-      featureText,
-      限制多行("已支持战斗、商店、章节推进、Koi-Koi、法宝、符咒和本地存档。当前视觉仍以程序化界面为主，后续可逐步替换为正式卡面、法宝图标、场景底图与章节 Boss 插画。", 8, 44),
-      {
-        width: 540,
-        height: 150,
-        maxLines: 8,
-        maxCharsLastLine: 44,
-        minFontSize: 12,
-        lineSpacing: 6,
-      },
-    );
 
     if (!loadRun()) load.setStyle({ backgroundColor: "#3a3028", color: "#8f8576" });
     start.setOrigin(0, 0.5);

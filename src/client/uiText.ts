@@ -60,13 +60,15 @@ export function 稀有度名(rarity: string): string {
   return rarity;
 }
 
-export function 词条名(trait: Trait): string {
-  if (trait === "GOLDEN") return "黄金";
-  if (trait === "STEEL") return "钢化";
-  if (trait === "GLASS") return "玻璃";
-  if (trait === "HOLO") return "全息";
-  if (trait === "LUCKY") return "幸运";
-  return "彩色";
+export function formatTrait(trait: Trait): string {
+  if (trait === "FORTUNE") return "招财";
+  if (trait === "NEW_YEAR") return "守岁";
+  if (trait === "WILD_SAKURA") return "狂樱";
+  if (trait === "PICTURED") return "绘图";
+  if (trait === "BLESSING") return "赐福";
+  if (trait === "INK") return "水墨";
+  if (trait === "MOON_PROXY") return "月代";
+  return trait;
 }
 
 export function 花牌原名(card: CardDef): string {
@@ -105,11 +107,12 @@ export function 花牌原名(card: CardDef): string {
 
 export const 基础计分说明 = [
   "基础计分规则：",
-  "总分 =（单卡筹码之和 + 符咒加分 + 牌型加分）",
+  "总分 =（台面全部单卡筹码之和 + 符咒加分 + 牌型加分）",
   "      ×（牌型倍率 + 附加倍率）× 乘法词条连乘",
   "补充：",
-  "1) 同一手牌可同时触发多个组合并叠加。",
-  "2) 达标时可选择 Koi-Koi：继续冲分，失败会让本关金币减半。",
+  "1) 点击手牌打出即可进行匹配拿牌。",
+  "2) 达成特定的组合即可触发成役，然后可选择Koi-Koi继续贪心。",
+  "3) 持续达成新组合可使最终奖励成倍攀升。",
 ];
 
 export const 羁绊速查说明 = [

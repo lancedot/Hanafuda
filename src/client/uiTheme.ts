@@ -17,6 +17,9 @@ export const 墨金主题 = {
   文本淡: "#a99677",
 };
 
+export const 清晰正文字体 = "Microsoft YaHei UI, Microsoft YaHei, SimHei, sans-serif";
+export const 清晰标题字体 = "Microsoft YaHei UI, Microsoft YaHei, SimHei, sans-serif";
+
 export function 绘制场景底纹(scene: Phaser.Scene, width: number, height: number): void {
   scene.cameras.main.setBackgroundColor(墨金主题.背景深);
   scene.add.rectangle(width / 2, height / 2, width, height, 墨金主题.背景深);
@@ -57,7 +60,7 @@ export function 绘制标题签(scene: Phaser.Scene, x: number, y: number, text:
   绘制描边面板(scene, x, y, width, 40, { fill: 0x2d2019, alpha: 0.94, stroke: 墨金主题.金边, radius: 12 });
   return scene.add.text(x + 14, y + 9, text, {
     color: 墨金主题.金亮,
-    fontFamily: "Noto Serif SC, Microsoft YaHei",
+    fontFamily: 清晰标题字体,
     fontSize: "18px",
   });
 }
@@ -92,7 +95,7 @@ export function 创建主题按钮(
       color: "#fff3dc",
       backgroundColor,
       fontSize: "15px",
-      fontFamily: "Microsoft YaHei",
+      fontFamily: 清晰正文字体,
       padding: { left: 14, right: 14, top: 8, bottom: 8 },
     })
     .setInteractive({ useHandCursor: true });
@@ -142,4 +145,56 @@ export function 收束文本对象(
     if (!overflowByHeight && !overflowByLines) break;
     fontSize -= 1;
   }
+}
+
+export function 创建悬浮提示(
+  scene: Phaser.Scene,
+): {
+  attach: (target: Phaser.GameObjects.GameObject, lines: string[]) => void;
+  hide: () => void;
+} {
+  const bg = scene.add.graphics().setDepth(2000).setVisible(false);
+  const text = scene.add
+    .text(0, 0, "", {
+      color: 墨金主题.文本主,
+      fontFamily: 清晰正文字体,
+      fontSize: "13px",
+      wordWrap: { width: 240 },
+      lineSpacing: 3,
+    })
+    .setDepth(2001)
+    .setVisible(false);
+
+  const show = (pointer: Phaser.Input.Pointer, lines: string[]) => {
+    const content = lines.filter(Boolean).join("\n");
+    if (!content) return;
+    text.setText(content);
+    const width = Math.min(252, Math.max(120, text.width + 18));
+    const height = text.height + 18;
+    const x = Math.min(scene.scale.width - width - 12, pointer.worldX + 14);
+    const y = Math.min(scene.scale.height - height - 12, pointer.worldY + 14);
+    bg.clear();
+    bg.fillStyle(0x120f0d, 0.96);
+    bg.lineStyle(2, 墨金主题.金边, 0.95);
+    bg.fillRoundedRect(x, y, width, height, 12);
+    bg.strokeRoundedRect(x, y, width, height, 12);
+    text.setPosition(x + 9, y + 9);
+    bg.setVisible(true);
+    text.setVisible(true);
+  };
+
+  const hide = () => {
+    bg.setVisible(false);
+    text.setVisible(false);
+  };
+
+  return {
+    attach: (target, lines) => {
+      target.setInteractive({ useHandCursor: true });
+      target.on("pointerover", (pointer: Phaser.Input.Pointer) => show(pointer, lines));
+      target.on("pointermove", (pointer: Phaser.Input.Pointer) => show(pointer, lines));
+      target.on("pointerout", hide);
+    },
+    hide,
+  };
 }

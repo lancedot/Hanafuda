@@ -1,6 +1,6 @@
 export type Rank = "HIKARI" | "TAN" | "KASU" | "TANE";
 export type Season = "SPRING" | "SUMMER" | "AUTUMN" | "WINTER" | "ECLIPSE";
-export type Trait = "GOLDEN" | "STEEL" | "GLASS" | "HOLO" | "LUCKY" | "COLOR";
+export type Trait = "FORTUNE" | "NEW_YEAR" | "WILD_SAKURA" | "PICTURED" | "BLESSING" | "INK" | "MOON_PROXY";
 
 export interface CardDef {
   id: string;
@@ -81,12 +81,18 @@ export interface CardInstance {
 }
 
 export interface KoiKoiState {
-  offered: boolean;
-  continued: boolean;
+  /** Whether Koi-Koi is currently pending a player choice */
   pendingChoice: boolean;
-  needExtraCombo: boolean;
+  /** Whether the player has chosen to continue at least once */
+  continued: boolean;
+  /** Whether the last Koi-Koi continuation succeeded (new yaku formed) */
   success: boolean;
+  /** Whether the round ended without forming a new yaku after Koi-Koi */
   failed: boolean;
+  /** Yaku names at the moment Koi-Koi was last triggered */
+  baselineCombos: string[];
+  /** Yaku name that triggered the current Koi-Koi offer */
+  triggerComboName: string;
 }
 
 export interface RunState {
@@ -96,10 +102,15 @@ export interface RunState {
   gold: number;
   scoreThisStage: number;
   totalScore: number;
+  /** Single-card plays remaining this stage (default 8) */
   playsLeft: number;
   discardsLeft: number;
   drawPile: string[];
   hand: string[];
+  /** Cards currently on the field (場) waiting to be matched */
+  fieldCards: string[];
+  /** Cards the player has successfully captured (拿走) this stage - used for scoring */
+  capturedCards: string[];
   discardPile: string[];
   removed: string[];
   cardsByUid: Record<string, CardInstance>;
@@ -119,7 +130,11 @@ export interface RunState {
   runLost: boolean;
   stageRewardPending: number;
   frozenCardUid?: string;
+  /** Multiplier that stacks each time a player chooses こいこい (starts at 1) */
+  koiKoiMultiplier: number;
   koiKoi: KoiKoiState;
+  /** Cards taken by the Boss from the field (Boss-stage only) */
+  bossCollected: string[];
   phoenixPending: boolean;
 }
 

@@ -3,13 +3,28 @@ import { SeededRng } from "./rng";
 import { stageRuleContext } from "./rules";
 import { evaluatePlay } from "./scoring";
 import { stageClearGrowth, targetMultiplierByStage } from "./balance";
-import type { CardDef, CardInstance, RunState, ScoreBreakdown } from "../types/game";
+import type { CardDef, CardInstance, KoiKoiState, RunState, ScoreBreakdown } from "../types/game";
 
 export const MAX_RELIC_SLOTS = 4;
 export const MAX_CHARM_SLOTS = 4;
+/** How many single-card plays a player gets per stage */
+export const STAGE_PLAYS = 8;
+/** How many cards are dealt face-up to the field at stage start */
+const INITIAL_FIELD_SIZE = 4;
 
 function uid(prefix: string, seq: number): string {
   return `${prefix}-${seq.toString().padStart(5, "0")}`;
+}
+
+function freshKoiKoi(): KoiKoiState {
+  return {
+    pendingChoice: false,
+    continued: false,
+    success: false,
+    failed: false,
+    baselineCombos: [],
+    triggerComboName: "",
+  };
 }
 
 export function createRun(seed = Date.now()): RunState {
@@ -36,10 +51,12 @@ export function createRun(seed = Date.now()): RunState {
     gold: 12,
     scoreThisStage: 0,
     totalScore: 0,
-    playsLeft: rules.basePlays,
+    playsLeft: STAGE_PLAYS,
     discardsLeft: rules.baseDiscards,
     drawPile,
     hand: [],
+    fieldCards: [],
+    capturedCards: [],
     discardPile: [],
     removed: [],
     cardsByUid,
@@ -57,16 +74,12 @@ export function createRun(seed = Date.now()): RunState {
     stageCleared: false,
     runLost: false,
     stageRewardPending: 0,
-    koiKoi: {
-      offered: false,
-      continued: false,
-      pendingChoice: false,
-      needExtraCombo: false,
-      success: false,
-      failed: false,
-    },
+    koiKoiMultiplier: 1,
+    koiKoi: freshKoiKoi(),
+    bossCollected: [],
     phoenixPending: false,
   };
+  startFieldDeal(run);
   drawToHand(run, rules.maxHandSize);
   return run;
 }
@@ -82,8 +95,9 @@ export function getCurrentStageTarget(run: RunState): number {
   return Math.max(200, Math.floor(raw * targetMultiplierByStage(idx)));
 }
 
-export function getMaxPlayCards(run: RunState): number {
-  return run.relics.includes("B-19") ? 6 : rules.maxPlayCards;
+export function getMaxPlayCards(_run: RunState): number {
+  // In field-matching mode, players always play 1 card at a time
+  return 1;
 }
 
 export function getRelicSlots(run: RunState): Array<string | undefined> {
@@ -92,6 +106,16 @@ export function getRelicSlots(run: RunState): Array<string | undefined> {
 
 export function getCharmSlots(run: RunState): Array<string | undefined> {
   return Array.from({ length: MAX_CHARM_SLOTS }, (_, index) => run.charms[index]);
+}
+
+/** Deal cards face-up to the field at the start of a stage */
+export function startFieldDeal(run: RunState): void {
+  for (let i = 0; i < INITIAL_FIELD_SIZE; i++) {
+    const next = run.drawPile.shift();
+    if (next && !run.removed.includes(next)) {
+      run.fieldCards.push(next);
+    }
+  }
 }
 
 export function drawToHand(run: RunState, targetSize: number): void {
@@ -109,32 +133,180 @@ export function drawToHand(run: RunState, targetSize: number): void {
   }
 }
 
-export function playCards(run: RunState, selectedUids: string[]): ScoreBreakdown {
-  const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
-  const score = evaluatePlay({
-    run,
-    selectedUids,
-    stageRuleCtx: stageRuleContext(stage),
-    isFirstPlayInStage: run.playsLeft === rules.basePlays,
-  });
+/** Get the month of a card instance */
+function getCardMonth(run: RunState, uid: string): number {
+  const inst = run.cardsByUid[uid];
+  if (!inst) return -1;
+  const def = cardById.get(inst.cardId);
+  return inst.monthOverride ?? def?.month ?? -1;
+}
 
-  for (const uid of selectedUids) {
-    run.hand = run.hand.filter((h) => h !== uid);
-    if (!run.removed.includes(uid)) run.discardPile.push(uid);
+/** Find the best-scoring field card that matches a given month (for player to capture) */
+function findFieldMatch(run: RunState, month: number): string | undefined {
+  // Prefer higher-rank card if multiple same-month cards are on the field
+  const matches = run.fieldCards.filter((u) => getCardMonth(run, u) === month);
+  if (matches.length === 0) return undefined;
+  // Sort by base value descending and pick the best
+  return matches.sort((a, b) => {
+    const da = cardById.get(run.cardsByUid[a]?.cardId ?? "");
+    const db = cardById.get(run.cardsByUid[b]?.cardId ?? "");
+    const va = (da?.baseChips ?? 0) + (da?.baseMult ?? 0) * 10;
+    const vb = (db?.baseChips ?? 0) + (db?.baseMult ?? 0) * 10;
+    return vb - va;
+  })[0];
+}
+
+export interface PlayOneCardResult {
+  /** uid of the played hand card */
+  handUid: string;
+  /** uid of the field card that was matched (if any) */
+  handMatchUid?: string;
+  /** uid of the card flipped from the draw pile */
+  flippedUid?: string;
+  /** uid of the field card matched by the flipped card (if any) */
+  flipMatchUid?: string;
+  /** New combo names that appeared after this play (triggers Koi-Koi choice) */
+  newComboNames: string[];
+  /** Full score breakdown at this point (only valid when stage ends or Koi-Koi triggers) */
+  scoreBreakdown?: ScoreBreakdown;
+  /** Whether the stage is now cleared */
+  stageCleared: boolean;
+  /** Whether the run is now lost */
+  runLost: boolean;
+}
+
+/**
+ * Core play action: play ONE card from hand into the field.
+ * Implements the Hanafuda matching mechanic:
+ *   1. Play hand card → capture if matching field card exists, else go to field
+ *   2. Flip one card from draw pile → same logic
+ *   3. Detect new yaku in capturedCards → trigger Koi-Koi if new yaku formed
+ *   4. Boss takes one card from field (boss stages only)
+ */
+export function playOneCard(run: RunState, handUid: string): PlayOneCardResult {
+  if (run.koiKoi.pendingChoice) {
+    return { handUid, newComboNames: [], stageCleared: false, runLost: false };
   }
+  if (!run.hand.includes(handUid)) {
+    return { handUid, newComboNames: [], stageCleared: false, runLost: false };
+  }
+
+  // ── 1. Remove from hand ──────────────────────────────────────────────────
+  run.hand = run.hand.filter((u) => u !== handUid);
   run.playsLeft -= 1;
 
-  run.scoreThisStage += score.finalScore;
-  run.totalScore += score.finalScore;
-
-  for (const name of score.comboNames) {
-    run.comboLevels[name] = (run.comboLevels[name] ?? 0) + 1;
-    if (name !== "乱舞 (散牌)" && !run.unlockedComboNames.includes(name)) {
-      run.unlockedComboNames.push(name);
+  // Handle relic B-05 (Kasu counter)
+  const playedInst = run.cardsByUid[handUid];
+  const playedDef = playedInst ? cardById.get(playedInst.cardId) : undefined;
+  if (run.relics.includes("B-05") && playedDef?.rank === "KASU") {
+    run.kasuPlayedCounter += 1;
+    while (run.kasuPlayedCounter >= 5) {
+      run.kasuPlayedCounter -= 5;
+      run.globalFlatMult += 1;
     }
   }
-  applyPostPlayRelics(run, selectedUids);
 
+  let matchedSakura = false;
+  let matchedSake = false;
+  const kikuSakeId = "MONTH_9_TANE_SAKE";
+  const checkMatch = (u: string) => {
+    if (getCardMonth(run, u) === 3) matchedSakura = true;
+    if (run.cardsByUid[u]?.cardId === kikuSakeId) matchedSake = true;
+  };
+
+  // ── 2. Match played card to field ─────────────────────────────────────────
+  run.hand = run.hand.filter((u) => u !== handUid);
+  const playedMonth = getCardMonth(run, handUid);
+  const handMatchUid = findFieldMatch(run, playedMonth);
+  if (handMatchUid) {
+    checkMatch(handUid);
+    checkMatch(handMatchUid);
+    run.fieldCards = run.fieldCards.filter((u) => u !== handMatchUid);
+    run.capturedCards.push(handUid, handMatchUid);
+    // FORTUNE trait: earn $3 per captured card
+    applyFortuneTrait(run, handUid);
+    applyFortuneTrait(run, handMatchUid);
+  } else {
+    run.fieldCards.push(handUid);
+  }
+
+  // ── 3. Flip one card from draw pile ──────────────────────────────────────
+  let flippedUid: string | undefined;
+  let flipMatchUid: string | undefined;
+  if (run.drawPile.length > 0) {
+    flippedUid = run.drawPile.shift()!;
+    while (flippedUid && run.removed.includes(flippedUid)) {
+      flippedUid = run.drawPile.shift();
+    }
+    if (flippedUid) {
+      const flippedMonth = getCardMonth(run, flippedUid);
+      flipMatchUid = findFieldMatch(run, flippedMonth);
+      if (flipMatchUid) {
+        checkMatch(flippedUid);
+        checkMatch(flipMatchUid);
+        run.fieldCards = run.fieldCards.filter((u) => u !== flipMatchUid);
+        run.capturedCards.push(flippedUid, flipMatchUid);
+        applyFortuneTrait(run, flippedUid);
+        applyFortuneTrait(run, flipMatchUid);
+      } else {
+        run.fieldCards.push(flippedUid);
+      }
+    }
+  }
+
+  if (matchedSakura && run.relics.includes("B-05")) {
+    run.playsLeft = Math.min(rules.basePlays, run.playsLeft + 1);
+  }
+  if (matchedSake && run.relics.includes("B-04")) {
+    run.globalFlatChips += 50;
+  }
+
+  // ── 4. Detect new yaku ────────────────────────────────────────────────────
+  run.nextPlayFlatChipBonus = 0;
+  const newComboNames = detectNewCombos(run);
+
+  // ── 5. Boss action (boss stages) ─────────────────────────────────────────
+  executeBossAction(run);
+
+  // ── 6. Summer season chip bonus on discard ───────────────────────────────
+  // (Applied in discard path; only the relic B-06 flip bonus here)
+  if (run.relics.includes("B-06")) run.nextPlayFlatChipBonus += 30;
+
+  // ── 7. Check Koi-Koi trigger ─────────────────────────────────────────────
+  if (newComboNames.length > 0) {
+    const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
+    const score = evaluatePlay({
+      run,
+      selectedUids: run.capturedCards,
+      stageRuleCtx: stageRuleContext(stage),
+    });
+    const target = getCurrentStageTarget(run);
+    if (score.finalScore >= target || run.playsLeft <= 0) {
+      // Enough to pass — offer Koi-Koi
+      run.koiKoi.pendingChoice = true;
+      run.koiKoi.triggerComboName = newComboNames[0] ?? "";
+      // Draw new hand card so player has cards when Koi-Koi resolves
+      drawToHand(run, rules.maxHandSize);
+      return {
+        handUid, handMatchUid, flippedUid, flipMatchUid,
+        newComboNames,
+        scoreBreakdown: score,
+        stageCleared: false,
+        runLost: false,
+      };
+    }
+  }
+
+  // No Koi-Koi → check if out of plays
+  if (run.playsLeft <= 0) {
+    return finalizeStage(run, handUid, handMatchUid, flippedUid, flipMatchUid, newComboNames);
+  }
+
+  // ── 8. Draw back up to hand size ─────────────────────────────────────────
+  drawToHand(run, rules.maxHandSize);
+
+  // Freeze mechanic (BOSS: 极寒)
+  const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
   if (stage.bossRuleText.includes("冻结") && run.hand.length > 0) {
     const rng = new SeededRng(nextRandomSeed(run, run.totalScore + run.hand.length));
     run.frozenCardUid = run.hand[rng.int(0, run.hand.length - 1)];
@@ -142,81 +314,130 @@ export function playCards(run: RunState, selectedUids: string[]): ScoreBreakdown
     run.frozenCardUid = undefined;
   }
 
-  const target = getCurrentStageTarget(run);
-  if (!run.koiKoi.offered && run.scoreThisStage >= target) {
-    run.koiKoi.offered = true;
-    run.koiKoi.pendingChoice = true;
-  }
-  if (run.koiKoi.continued && run.koiKoi.needExtraCombo) {
-    if (score.comboNames.some((name) => name !== "乱舞 (散牌)")) {
-      run.koiKoi.success = true;
-      run.koiKoi.needExtraCombo = false;
-      run.stageCleared = true;
-    }
-  }
-
-  if (!run.stageCleared && run.playsLeft <= 0) {
-    if (run.scoreThisStage >= target) {
-      run.stageCleared = true;
-      if (run.koiKoi.continued && run.koiKoi.needExtraCombo) {
-        run.koiKoi.failed = true;
-        run.koiKoi.needExtraCombo = false;
-      }
-    } else {
-      run.runLost = true;
-    }
-  }
-
-  drawToHand(run, rules.maxHandSize);
-  return score;
+  return { handUid, handMatchUid, flippedUid, flipMatchUid, newComboNames, stageCleared: false, runLost: false };
 }
 
-export function previewPlayScore(run: RunState, selectedUids: string[]): ScoreBreakdown {
+/** Called when playsLeft hits 0 without a pending Koi-Koi, to finalize scoring */
+function finalizeStage(
+  run: RunState,
+  handUid: string,
+  handMatchUid: string | undefined,
+  flippedUid: string | undefined,
+  flipMatchUid: string | undefined,
+  newComboNames: string[],
+): PlayOneCardResult {
   const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
-  const shadow: RunState = {
-    ...run,
-    drawPile: [...run.drawPile],
-    hand: [...run.hand],
-    discardPile: [...run.discardPile],
-    removed: [...run.removed],
-    relics: [...run.relics],
-    charms: [...run.charms],
-    purchasedCharms: [...(run.purchasedCharms ?? [])],
-    comboLevels: { ...run.comboLevels },
-    unlockedComboNames: [...run.unlockedComboNames],
-    koiKoi: { ...run.koiKoi },
-    cardsByUid: Object.fromEntries(
-      Object.entries(run.cardsByUid).map(([k, v]) => [
-        k,
-        {
-          ...v,
-          traits: [...v.traits],
-          appliedCharmIds: [...(v.appliedCharmIds ?? [])],
-        },
-      ]),
-    ),
-  };
-  return evaluatePlay({
-    run: shadow,
-    selectedUids,
+  const score = evaluatePlay({
+    run,
+    selectedUids: run.capturedCards,
     stageRuleCtx: stageRuleContext(stage),
-    isFirstPlayInStage: run.playsLeft === rules.basePlays,
   });
-}
+  const target = getCurrentStageTarget(run);
 
-function applyPostPlayRelics(run: RunState, selectedUids: string[]): void {
-  if (run.relics.includes("B-05")) {
-    const kasuCount = selectedUids
-      .map((uid) => run.cardsByUid[uid])
-      .map((ci) => ci && cardById.get(ci.cardId))
-      .filter((def) => def?.rank === "KASU").length;
-    run.kasuPlayedCounter += kasuCount;
-    while (run.kasuPlayedCounter >= 5) {
-      run.kasuPlayedCounter -= 5;
-      run.globalFlatMult += 1;
+  run.scoreThisStage = score.finalScore;
+  run.totalScore += score.finalScore;
+
+  // Track which combos were achieved
+  for (const name of score.comboNames) {
+    run.comboLevels[name] = (run.comboLevels[name] ?? 0) + 1;
+    if (name !== "乱舞 (散牌)" && !run.unlockedComboNames.includes(name)) {
+      run.unlockedComboNames.push(name);
     }
   }
-  run.nextPlayFlatChipBonus = 0;
+
+  if (score.finalScore >= target) {
+    run.stageCleared = true;
+    if (run.koiKoi.continued) run.koiKoi.success = true;
+    return {
+      handUid, handMatchUid, flippedUid, flipMatchUid,
+      newComboNames, scoreBreakdown: score,
+      stageCleared: true, runLost: false,
+    };
+  } else {
+    // Koi-Koi was active but no new yaku formed → failure penalty check
+    if (run.koiKoi.continued) {
+      run.koiKoi.failed = true;
+    }
+    run.runLost = true;
+    return {
+      handUid, handMatchUid, flippedUid, flipMatchUid,
+      newComboNames, scoreBreakdown: score,
+      stageCleared: false, runLost: true,
+    };
+  }
+}
+
+/** Detect which combo names are newly present in capturedCards vs. the Koi-Koi baseline */
+function detectNewCombos(run: RunState): string[] {
+  if (run.capturedCards.length === 0) return [];
+  const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
+  const score = evaluatePlay({
+    run,
+    selectedUids: run.capturedCards,
+    stageRuleCtx: stageRuleContext(stage),
+  });
+  const currentCombos = score.comboNames.filter((n) => n !== "乱舞 (散牌)");
+  const baseline = run.koiKoi.baselineCombos;
+  return currentCombos.filter((n) => !baseline.includes(n));
+}
+
+/** Boss steals one card from the field according to its strategy */
+function executeBossAction(run: RunState): void {
+  if (run.fieldCards.length === 0) return;
+  const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
+  if (!stage.boss || !stage.bossRuleText) return;
+
+  // Determine Boss strategy from its name/rule
+  let targetUid: string | undefined;
+
+  if (stage.boss.includes("酒吞")) {
+    // Prefers TAN (ribbon) cards to block 赤短/青短
+    targetUid = run.fieldCards.find((u) => {
+      const def = cardById.get(run.cardsByUid[u]?.cardId ?? "");
+      return def?.rank === "TAN";
+    });
+  } else if (stage.boss.includes("玉藻")) {
+    // Prefers TANE (seed/animal) cards
+    targetUid = run.fieldCards.find((u) => {
+      const def = cardById.get(run.cardsByUid[u]?.cardId ?? "");
+      return def?.rank === "TANE";
+    });
+  } else if (stage.boss.includes("土蜘蛛")) {
+    // Prefers to break same-month combos: takes a card that would let player complete a pair
+    const monthCounts = new Map<number, string[]>();
+    for (const u of run.fieldCards) {
+      const m = getCardMonth(run, u);
+      if (!monthCounts.has(m)) monthCounts.set(m, []);
+      monthCounts.get(m)!.push(u);
+    }
+    // Pick from a month that also appears in player's hand (to ruin future matches)
+    for (const hUid of run.hand) {
+      const hMonth = getCardMonth(run, hUid);
+      const group = monthCounts.get(hMonth);
+      if (group && group.length > 0) {
+        targetUid = group[0];
+        break;
+      }
+    }
+  } else if (stage.boss.includes("宿儺") || stage.boss.includes("辉夜")) {
+    // Prefers HIKARI (bright) cards
+    targetUid = run.fieldCards.find((u) => {
+      const def = cardById.get(run.cardsByUid[u]?.cardId ?? "");
+      return def?.rank === "HIKARI";
+    });
+  }
+
+  // Fallback: take leftmost field card
+  if (!targetUid) targetUid = run.fieldCards[0];
+  if (!targetUid) return;
+
+  run.fieldCards = run.fieldCards.filter((u) => u !== targetUid);
+  run.bossCollected.push(targetUid!);
+}
+
+function applyFortuneTrait(run: RunState, cardUid: string): void {
+  const inst = run.cardsByUid[cardUid];
+  if (inst?.traits.includes("FORTUNE")) run.gold += 3;
 }
 
 export function discardCards(run: RunState, selectedUids: string[]): void {
@@ -227,14 +448,59 @@ export function discardCards(run: RunState, selectedUids: string[]): void {
   }
   run.discardsLeft -= 1;
   if (run.relics.includes("B-06")) run.nextPlayFlatChipBonus += 30;
-  if (stages[run.stageIndex].season === "SUMMER") run.seasonChipBonus += 1;
+  if (stages[run.stageIndex]?.season === "SUMMER") run.seasonChipBonus += 1;
   drawToHand(run, rules.maxHandSize);
+}
+
+/** Called when player picks 「結了」(End) in the Koi-Koi dialog: finalize scoring */
+export function handleKoiKoiChoice(run: RunState, choice: "END" | "CONTINUE"): ScoreBreakdown {
+  run.koiKoi.pendingChoice = false;
+
+  if (choice === "END") {
+    const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
+    const score = evaluatePlay({
+      run,
+      selectedUids: run.capturedCards,
+      stageRuleCtx: stageRuleContext(stage),
+    });
+
+    run.scoreThisStage = score.finalScore;
+    run.totalScore += score.finalScore;
+    run.stageCleared = true;
+
+    for (const name of score.comboNames) {
+      run.comboLevels[name] = (run.comboLevels[name] ?? 0) + 1;
+      if (name !== "乱舞 (散牌)" && !run.unlockedComboNames.includes(name)) {
+        run.unlockedComboNames.push(name);
+      }
+    }
+    return score;
+  }
+
+  // CONTINUE: stack the Koi-Koi multiplier and record current combos as baseline
+  run.koiKoi.continued = true;
+  run.koiKoiMultiplier *= 2;
+
+  // Record current yaku as baseline so we can detect NEW ones next time
+  const stage = stages[Math.min(run.stageIndex, stages.length - 1)];
+  const currentScore = evaluatePlay({
+    run,
+    selectedUids: run.capturedCards,
+    stageRuleCtx: stageRuleContext(stage),
+  });
+  run.koiKoi.baselineCombos = currentScore.comboNames.filter((n) => n !== "乱舞 (散牌)");
+
+  // Give player one more play if they've run out
+  if (run.playsLeft <= 0) run.playsLeft = 2;
+  drawToHand(run, rules.maxHandSize);
+
+  return currentScore;
 }
 
 export function settleStageAndPrepareShop(run: RunState): number {
   const target = getCurrentStageTarget(run);
-  const ratio = Math.max(1, run.scoreThisStage / Math.max(1, target));
-  let reward = Math.floor(5 + ratio * 3);
+  const ratio = Math.max(1, Math.min(6, run.scoreThisStage / Math.max(1, target)));
+  let reward = Math.floor(4 + ratio * 1.5);
   reward += Math.floor(Math.min(run.gold, rules.interest.cap) / rules.interest.step) * rules.interest.bonus;
 
   if (run.koiKoi.continued && run.koiKoi.success) {
@@ -260,32 +526,27 @@ export function settleStageAndPrepareShop(run: RunState): number {
 export function startNextStage(run: RunState): void {
   if (run.stageIndex < stages.length - 1) run.stageIndex += 1;
   run.scoreThisStage = 0;
-  run.playsLeft = rules.basePlays;
+  run.playsLeft = STAGE_PLAYS;
   run.discardsLeft = rules.baseDiscards;
+
+  // Move all field + captured cards to discard
+  for (const uid of [...run.fieldCards, ...run.capturedCards]) {
+    if (!run.removed.includes(uid)) run.discardPile.push(uid);
+  }
+  run.fieldCards = [];
+  run.capturedCards = [];
+  run.bossCollected = [];
+
   run.seasonChipBonus = 0;
   run.monthBuffTarget = undefined;
   run.nextPlayFlatChipBonus = 0;
   run.stageCleared = false;
   run.frozenCardUid = undefined;
-  run.koiKoi = {
-    offered: false,
-    continued: false,
-    pendingChoice: false,
-    needExtraCombo: false,
-    success: false,
-    failed: false,
-  };
-  drawToHand(run, rules.maxHandSize);
-}
+  run.koiKoiMultiplier = 1;
+  run.koiKoi = freshKoiKoi();
 
-export function handleKoiKoiChoice(run: RunState, choice: "END" | "CONTINUE"): void {
-  run.koiKoi.pendingChoice = false;
-  if (choice === "END") {
-    run.stageCleared = true;
-    return;
-  }
-  run.koiKoi.continued = true;
-  run.koiKoi.needExtraCombo = true;
+  startFieldDeal(run);
+  drawToHand(run, rules.maxHandSize);
 }
 
 export function addCardToDeck(run: RunState, cardDef: CardDef): void {
@@ -399,21 +660,21 @@ export function applyCharm(
       return `复制了 ${cardName(first!.uid, run)}`;
     }
     case "C-07":
-      addTrait(first!.traits, "GOLDEN");
+      addTrait(first!.traits, "FORTUNE");
       recordCharm(first!, charmId);
-      return `${cardName(first!.uid, run)} 获得黄金`;
+      return `${cardName(first!.uid, run)} 获得招财`;
     case "C-08":
-      addTrait(first!.traits, "STEEL");
+      addTrait(first!.traits, "NEW_YEAR");
       recordCharm(first!, charmId);
-      return `${cardName(first!.uid, run)} 获得钢化`;
+      return `${cardName(first!.uid, run)} 获得守岁`;
     case "C-09":
-      addTrait(first!.traits, "GLASS");
+      addTrait(first!.traits, "WILD_SAKURA");
       recordCharm(first!, charmId);
-      return `${cardName(first!.uid, run)} 获得玻璃`;
+      return `${cardName(first!.uid, run)} 获得狂樱`;
     case "C-10":
-      addTrait(first!.traits, "HOLO");
+      addTrait(first!.traits, "PICTURED");
       recordCharm(first!, charmId);
-      return `${cardName(first!.uid, run)} 获得全息`;
+      return `${cardName(first!.uid, run)} 获得绘图`;
     case "C-11": {
       const a = targetUid ?? run.hand[0];
       const b = secondaryUid ?? run.hand[1];
@@ -434,13 +695,13 @@ export function applyCharm(
       }
       return `本关月份${run.monthBuffTarget}获得+50 Chips`;
     case "C-14":
-      addTrait(first!.traits, "LUCKY");
+      addTrait(first!.traits, "BLESSING");
       recordCharm(first!, charmId);
-      return `${cardName(first!.uid, run)} 获得幸运`;
+      return `${cardName(first!.uid, run)} 获得赐福`;
     case "C-15":
-      addTrait(first!.traits, "COLOR");
+      addTrait(first!.traits, "INK");
       recordCharm(first!, charmId);
-      return `${cardName(first!.uid, run)} 获得彩色`;
+      return `${cardName(first!.uid, run)} 获得水墨`;
     default:
       return "符咒未实现";
   }

@@ -6,10 +6,8 @@ import {
   buyRelic,
   createRun,
   discardCards,
-  getMaxPlayCards,
   handleKoiKoiChoice,
-  playCards,
-  previewPlayScore,
+  playOneCard,
   settleStageAndPrepareShop,
   startNextStage,
 } from "../src/core/run";
@@ -21,60 +19,65 @@ type RunResult = {
   cleared: boolean;
 };
 
-function* combinations<T>(arr: T[], maxSize: number): Generator<T[]> {
-  const n = arr.length;
-  for (let size = 1; size <= Math.min(maxSize, n); size += 1) {
-    const idx = Array.from({ length: size }, (_, i) => i);
-    while (true) {
-      yield idx.map((i) => arr[i]);
-      let p = size - 1;
-      while (p >= 0 && idx[p] === n - size + p) p -= 1;
-      if (p < 0) break;
-      idx[p] += 1;
-      for (let j = p + 1; j < size; j += 1) idx[j] = idx[j - 1] + 1;
-    }
-  }
-}
-
-function chooseBest(run: ReturnType<typeof createRun>): string[] {
-  const maxPlay = getMaxPlayCards(run);
+/**
+ * Greedy AI: play the hand card that has the best chance of matching on the field.
+ * Priority: 1) cards that match field  2) high-value cards
+ */
+function chooseBestCard(run: ReturnType<typeof createRun>): string | undefined {
   const selectable = run.hand.filter((uid) => uid !== run.frozenCardUid);
-  let best: string[] = [];
-  let bestScore = -1;
-  for (const combo of combinations(selectable, maxPlay)) {
-    const p = previewPlayScore(run, combo);
-    if (p.finalScore > bestScore) {
-      bestScore = p.finalScore;
-      best = combo;
-    }
-  }
-  return best;
+  if (selectable.length === 0) return undefined;
+
+  // Find cards that have a matching field card
+  const withMatch = selectable.filter((uid) => {
+    const inst = run.cardsByUid[uid];
+    const def = inst ? cardById.get(inst.cardId) : undefined;
+    const month = inst?.monthOverride ?? def?.month ?? -1;
+    return run.fieldCards.some((fUid) => {
+      const fi = run.cardsByUid[fUid];
+      const fd = fi ? cardById.get(fi.cardId) : undefined;
+      return (fi?.monthOverride ?? fd?.month) === month;
+    });
+  });
+
+  const candidates = withMatch.length > 0 ? withMatch : selectable;
+  // Pick highest baseChips card
+  return candidates.sort((a, b) => {
+    const da = cardById.get(run.cardsByUid[a]?.cardId ?? "");
+    const db = cardById.get(run.cardsByUid[b]?.cardId ?? "");
+    return (db?.baseChips ?? 0) - (da?.baseChips ?? 0);
+  })[0];
 }
 
 function simulate(seed: number): RunResult {
   const run = createRun(seed);
   let guard = 0;
-  while (!run.runLost && guard < 500) {
+  while (!run.runLost && guard < 1000) {
     guard += 1;
     let turnGuard = 0;
-    while (!run.runLost && !run.stageCleared && turnGuard < 30) {
+    while (!run.runLost && !run.stageCleared && turnGuard < 50) {
       turnGuard += 1;
       if (run.koiKoi.pendingChoice) {
-        // 难度评估用保守策略：达标就收，减少波动。
+        // Conservative strategy: always end Koi-Koi once triggered
         handleKoiKoiChoice(run, "END");
+        if (run.stageCleared) break;
         continue;
       }
-      const best = chooseBest(run);
-      if (best.length === 0) {
-        if (run.discardsLeft > 0) discardCards(run, run.hand.slice(0, Math.min(3, run.hand.length)));
-        else break;
+      if (run.playsLeft <= 0) break;
+      const best = chooseBestCard(run);
+      if (!best) {
+        if (run.discardsLeft > 0 && run.hand.length > 0) {
+          discardCards(run, run.hand.slice(0, Math.min(3, run.hand.length)));
+        } else {
+          break;
+        }
       } else {
-        playCards(run, best);
+        const result = playOneCard(run, best);
+        if (result.stageCleared || result.runLost) break;
       }
     }
 
     if (run.runLost) break;
-    if (!run.stageCleared) break;
+    if (!run.stageCleared && !run.koiKoi.pendingChoice) break;
 
     settleStageAndPrepareShop(run);
     if (run.stageIndex >= stages.length - 1) {
@@ -103,7 +106,7 @@ function simulate(seed: number): RunResult {
   return { seed, reached: run.stageIndex + 1, cleared: false };
 }
 
-function evaluateDifficulty(sampleSize = 120) {
+function evaluateDifficulty(sampleSize = 60) {
   const results: RunResult[] = [];
   for (let i = 0; i < sampleSize; i += 1) results.push(simulate(10000 + i));
 
@@ -122,8 +125,8 @@ function evaluateDifficulty(sampleSize = 120) {
 
 describe("难度评估脚本", () => {
   it("输出关卡推进统计", () => {
-    const summary = evaluateDifficulty(120);
+    const summary = evaluateDifficulty(60);
     console.log("DIFFICULTY_EVAL", JSON.stringify(summary, null, 2));
-    expect(summary.sampleSize).toBe(120);
-  }, 30000);
+    expect(summary.sampleSize).toBe(60);
+  }, 60000);
 });
